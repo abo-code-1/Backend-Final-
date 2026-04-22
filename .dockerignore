@@ -1,0 +1,52 @@
+node_modules
+dist
+build
+coverage
+.git
+.github
+.gitignore
+.dockerignore
+docker-compose*.yml
+
+# Docs / specs
+*.md
+!README.md
+openapi.yaml
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Credentials / keys
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+id_rsa*
+id_ed25519*
+.aws/
+
+# Editor / OS
+.idea
+.vscode
+.DS_Store
+
+# Logs & tmp
+logs
+*.log
+.cache
+tmp
+
+# Tests
+tests
+**/__tests__
+**/*.test.ts
+
+# Scripts meant for the host, not the image
+scripts
+
+# Claude / local metadata
+.claude
+.mcp.json
