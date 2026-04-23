@@ -24,11 +24,11 @@ export const healthHandler: RequestHandler = (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 };
 
-app.get('/home', sayHi());
-
-function sayHi(){
-  console.log("Hello world");
+const sayHi: RequestHandler = (_req, res) => {
+  res.send('Hello world');
 };
+
+app.get('/home', sayHi);
 
 app.get('/health', healthHandler);
 
