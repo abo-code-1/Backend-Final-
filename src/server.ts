@@ -24,6 +24,12 @@ export const healthHandler: RequestHandler = (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 };
 
+app.get('/home', sayHi());
+
+function sayHi(){
+  console.log("Hello world");
+};
+
 app.get('/health', healthHandler);
 
 export function startServer() {
