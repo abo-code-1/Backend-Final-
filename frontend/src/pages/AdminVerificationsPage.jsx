@@ -1,16 +1,25 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
+import { Check, X, ShieldCheck, ExternalLink } from "lucide-react";
 import { apiClient } from "../api/client";
+import Button from "../components/common/Button";
+import PageHeader from "../components/common/PageHeader";
+import EmptyState from "../components/common/EmptyState";
+import { PageSpinner } from "../components/common/Spinner";
 
 export default function AdminVerificationsPage() {
   const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const load = async () => {
+    setLoading(true);
     try {
       const { data } = await apiClient.get("/admin/verifications/pending");
       setItems(data.items || []);
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Не удалось загрузить верификации");
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Не удалось загрузить");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -21,38 +30,82 @@ export default function AdminVerificationsPage() {
   const review = async (id, status) => {
     try {
       await apiClient.patch(`/admin/verifications/${id}/review`, { status });
-      toast.success(status === "approved" ? "ID подтвержден" : "ID отклонен");
+      toast.success(status === "approved" ? "ID подтверждён" : "ID отклонён");
       load();
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Не удалось обновить верификацию");
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Не удалось");
     }
   };
 
   return (
-    <main className="page">
-      <h1>Admin Verifications</h1>
-      <div className="listings-grid">
-        {items.map((item) => (
-          <article key={item.id} className="card">
-            <h3>{item.user?.fullName}</h3>
-            <p>{item.user?.email}</p>
-            <p>ID image: {item.imageUrl}</p>
-            <div className="row">
-              <button className="btn" type="button" onClick={() => review(item.id, "approved")}>
-                Approve
-              </button>
-              <button
-                className="btn btn-danger"
-                type="button"
-                onClick={() => review(item.id, "rejected")}
-              >
-                Reject
-              </button>
-            </div>
-          </article>
-        ))}
+    <div>
+      <PageHeader
+        eyebrow="Админ"
+        title="Верификации ID"
+        subtitle="Подтвердите личности пользователей."
+      />
+
+      <div className="mt-8">
+        {loading ? (
+          <PageSpinner />
+        ) : items.length === 0 ? (
+          <EmptyState
+            icon={ShieldCheck}
+            title="Нет ожидающих верификаций"
+            description="Все заявки на проверку обработаны."
+          />
+        ) : (
+          <div className="grid md:grid-cols-2 gap-4">
+            {items.map((item) => (
+              <div key={item.id} className="rounded-2xl border overflow-hidden">
+                <div className="aspect-[16/9] bg-muted flex items-center justify-center">
+                  {item.imageUrl ? (
+                    <img
+                      src={item.imageUrl}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-sm text-muted-foreground">
+                      Нет изображения
+                    </span>
+                  )}
+                </div>
+                <div className="p-5">
+                  <h3 className="font-semibold">{item.user?.fullName}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {item.user?.email}
+                  </p>
+                  <div className="mt-4 flex gap-2">
+                    <Button size="sm" onClick={() => review(item.id, "approved")}>
+                      <Check size={14} /> Одобрить
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-destructive"
+                      onClick={() => review(item.id, "rejected")}
+                    >
+                      <X size={14} /> Отклонить
+                    </Button>
+                    {item.imageUrl && (
+                      <a
+                        href={item.imageUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <Button size="sm" variant="ghost">
+                          <ExternalLink size={14} />
+                        </Button>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-      {items.length === 0 && <p>Нет pending ID-верификаций.</p>}
-    </main>
+    </div>
   );
 }

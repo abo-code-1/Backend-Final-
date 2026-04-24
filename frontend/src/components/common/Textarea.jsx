@@ -1,24 +1,22 @@
 import { forwardRef } from "react";
 import { cn } from "../../utils/cn";
 
-const Input = forwardRef(function Input(
-  { className, type, label, error, hint, ...props },
+const Textarea = forwardRef(function Textarea(
+  { className, label, error, hint, rows = 4, ...props },
   ref
 ) {
   return (
     <div className="grid w-full gap-1.5">
       {label && (
-        <label className="text-sm font-semibold text-foreground">
-          {label}
-        </label>
+        <label className="text-sm font-semibold text-foreground">{label}</label>
       )}
-      <input
+      <textarea
         ref={ref}
-        type={type}
+        rows={rows}
         className={cn(
-          "flex h-11 w-full rounded-lg border border-border bg-background px-3.5 text-sm text-foreground placeholder:text-muted-foreground transition-colors",
+          "w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground transition-colors",
           "focus:outline-none focus:border-foreground focus:ring-2 focus:ring-foreground/10",
-          "disabled:cursor-not-allowed disabled:opacity-50",
+          "disabled:cursor-not-allowed disabled:opacity-50 resize-y",
           error && "border-destructive focus:border-destructive focus:ring-destructive/20",
           className
         )}
@@ -33,4 +31,4 @@ const Input = forwardRef(function Input(
   );
 });
 
-export default Input;
+export default Textarea;

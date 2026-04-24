@@ -1,47 +1,48 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { apiClient } from "../api/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "react-toastify";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Search, 
-  MapPin, 
-  Filter, 
-  ChevronLeft, 
-  ChevronRight, 
+import {
+  Search,
   SlidersHorizontal,
-  LayoutGrid,
-  List as ListIcon,
-  X
+  ChevronLeft,
+  ChevronRight,
+  X,
+  MapPin,
 } from "lucide-react";
+import { useSelector } from "react-redux";
+import { apiClient } from "../api/client";
 import Button from "../components/common/Button";
 import Input from "../components/common/Input";
 import Select from "../components/common/Select";
 import Checkbox from "../components/common/Checkbox";
-import Badge from "../components/common/Badge";
-import { Card, CardContent, CardFooter } from "../components/common/Card";
+import ListingCard from "../components/listings/ListingCard";
+import ListingSkeleton from "../components/listings/ListingSkeleton";
+import EmptyState from "../components/common/EmptyState";
 import { cn } from "../utils/cn";
 
-const cityOptions = [
+const CITY_OPTIONS = [
   { label: "Все города", value: "" },
   { label: "Алматы", value: "almaty" },
   { label: "Астана", value: "astana" },
   { label: "Шымкент", value: "shymkent" },
 ];
 
-const sortOptions = [
+const SORT_OPTIONS = [
   { label: "Сначала новые", value: "newest" },
-  { label: "Дешевле", value: "price_asc" },
-  { label: "Дороже", value: "price_desc" },
+  { label: "Сначала дешевле", value: "price_asc" },
+  { label: "Сначала дороже", value: "price_desc" },
 ];
 
 export default function ListingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [viewMode, setViewMode] = useState("grid"); // grid or list
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const { token } = useSelector((s) => s.auth);
+  const queryClient = useQueryClient();
 
-  const filters = useMemo(() => {
-    return {
+  const filters = useMemo(
+    () => ({
       city: searchParams.get("city") || "",
       district: searchParams.get("district") || "",
       minPrice: searchParams.get("minPrice") || "",
@@ -52,207 +53,176 @@ export default function ListingsPage() {
       internetIncluded: searchParams.get("internetIncluded") || "",
       verifiedHostsOnly: searchParams.get("verifiedHostsOnly") || "",
       hasPhotos: searchParams.get("hasPhotos") || "",
-    };
-  }, [searchParams]);
+    }),
+    [searchParams]
+  );
+
+  const activeFilterCount = [
+    filters.city,
+    filters.district,
+    filters.minPrice,
+    filters.maxPrice,
+    filters.furnished,
+    filters.internetIncluded,
+    filters.verifiedHostsOnly,
+    filters.hasPhotos,
+  ].filter(Boolean).length;
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["listings", filters],
     queryFn: async () => {
-      const response = await apiClient.get("/listings", { params: filters });
-      return response.data;
+      const { data } = await apiClient.get("/listings", { params: filters });
+      return data;
     },
     keepPreviousData: true,
   });
 
-  const updateFilters = (newFilters) => {
-    const nextParams = new URLSearchParams(searchParams);
-    Object.entries(newFilters).forEach(([key, value]) => {
-      if (value) {
-        nextParams.set(key, value);
-      } else {
-        nextParams.delete(key);
+  const { data: favoriteMap = {} } = useQuery({
+    queryKey: ["favorites-map"],
+    queryFn: async () => {
+      if (!token) return {};
+      const { data } = await apiClient.get("/favorites");
+      const map = {};
+      (data.items || []).forEach((f) => {
+        map[f.listing.id] = true;
+      });
+      return map;
+    },
+    enabled: !!token,
+  });
+
+  const toggleFavorite = useMutation({
+    mutationFn: async (listing) => {
+      if (!token) {
+        toast.info("Войдите, чтобы добавлять в избранное");
+        throw new Error("no-auth");
       }
+      if (favoriteMap[listing.id]) {
+        await apiClient.delete(`/favorites/${listing.id}`);
+      } else {
+        await apiClient.post("/favorites", { listingId: Number(listing.id) });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["favorites-map"] });
+    },
+  });
+
+  const updateFilters = (patch, resetPage = true) => {
+    const next = new URLSearchParams(searchParams);
+    Object.entries(patch).forEach(([k, v]) => {
+      if (v) next.set(k, v);
+      else next.delete(k);
     });
-    nextParams.set("page", "1"); // Reset to page 1 on filter change
-    setSearchParams(nextParams);
+    if (resetPage) next.set("page", "1");
+    setSearchParams(next);
   };
 
-  const setPage = (page) => {
-    const nextParams = new URLSearchParams(searchParams);
-    nextParams.set("page", String(page));
-    setSearchParams(nextParams);
+  const setPage = (p) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("page", String(p));
+    setSearchParams(next);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const clearFilters = () => {
-    setSearchParams(new URLSearchParams());
-  };
+  const clearAll = () => setSearchParams(new URLSearchParams());
 
   const listings = data?.items || [];
   const pagination = data?.pagination || { page: 1, totalPages: 1, total: 0 };
 
-  const FilterSidebar = ({ className }) => (
-    <div className={cn("space-y-8", className)}>
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold flex items-center gap-2">
-          <SlidersHorizontal size={18} />
-          Фильтры
-        </h3>
-        <button 
-          onClick={clearFilters}
-          className="text-xs text-primary hover:underline font-medium"
-        >
-          Сбросить все
-        </button>
-      </div>
-
-      <div className="space-y-6">
-        <Select
-          label="Город"
-          value={filters.city}
-          onChange={(e) => updateFilters({ city: e.target.value })}
-          options={cityOptions}
-        />
-
-        <Input
-          label="Район"
-          placeholder="Например, Бостандыкский"
-          value={filters.district}
-          onChange={(e) => updateFilters({ district: e.target.value })}
-        />
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Бюджет (₸)</label>
-          <div className="flex gap-2">
-            <Input
-              type="number"
-              placeholder="От"
-              value={filters.minPrice}
-              onChange={(e) => updateFilters({ minPrice: e.target.value })}
-            />
-            <Input
-              type="number"
-              placeholder="До"
-              value={filters.maxPrice}
-              onChange={(e) => updateFilters({ maxPrice: e.target.value })}
-            />
-          </div>
-        </div>
-
-        <div className="space-y-4 pt-2">
-          <h4 className="text-sm font-semibold">Удобства</h4>
-          <Checkbox
-            label="Меблировано"
-            id="furnished"
-            checked={filters.furnished === "true"}
-            onChange={(e) => updateFilters({ furnished: e.target.checked ? "true" : "" })}
-          />
-          <Checkbox
-            label="Интернет включен"
-            id="internetIncluded"
-            checked={filters.internetIncluded === "true"}
-            onChange={(e) => updateFilters({ internetIncluded: e.target.checked ? "true" : "" })}
-          />
-          <Checkbox
-            label="Только с фото"
-            id="hasPhotos"
-            checked={filters.hasPhotos === "true"}
-            onChange={(e) => updateFilters({ hasPhotos: e.target.checked ? "true" : "" })}
-          />
-          <Checkbox
-            label="Верифицированные"
-            id="verified"
-            checked={filters.verifiedHostsOnly === "true"}
-            onChange={(e) => updateFilters({ verifiedHostsOnly: e.target.checked ? "true" : "" })}
-          />
-        </div>
-      </div>
-    </div>
-  );
-
   return (
-    <div className="flex flex-col gap-8">
-      {/* Top Header/Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div>
+      {/* TOP BAR */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Поиск жилья</h1>
-          <p className="text-muted-foreground mt-1">
-            {isLoading ? "Загрузка..." : `Найдено ${pagination.total} вариантов`}
+          <p className="text-sm text-muted-foreground mt-1">
+            {isLoading
+              ? "Загружаем..."
+              : `Найдено ${pagination.total} ${pluralize(pagination.total)}`}
           </p>
         </div>
-        
-        <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center bg-muted p-1 rounded-lg">
-            <button 
-              onClick={() => setViewMode("grid")}
-              className={cn("p-1.5 rounded-md", viewMode === "grid" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground")}
-            >
-              <LayoutGrid size={18} />
-            </button>
-            <button 
-              onClick={() => setViewMode("list")}
-              className={cn("p-1.5 rounded-md", viewMode === "list" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground")}
-            >
-              <ListIcon size={18} />
-            </button>
-          </div>
-          
+
+        <div className="flex items-center gap-2">
           <Select
-            className="w-[180px]"
+            className="h-11 w-[200px]"
             value={filters.sort}
             onChange={(e) => updateFilters({ sort: e.target.value })}
-            options={sortOptions}
+            options={SORT_OPTIONS}
           />
-          
-          <Button 
-            variant="outline" 
-            className="md:hidden"
-            onClick={() => setIsSidebarOpen(true)}
+          <Button
+            variant="outline"
+            className="lg:hidden relative"
+            onClick={() => setDrawerOpen(true)}
           >
-            <Filter size={18} className="mr-2" />
+            <SlidersHorizontal size={16} />
             Фильтры
+            {activeFilterCount > 0 && (
+              <span className="ml-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-bold text-primary-foreground">
+                {activeFilterCount}
+              </span>
+            )}
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-10 relative">
-        {/* Desktop Sidebar */}
-        <aside className="hidden lg:block lg:col-span-1 sticky top-24 h-fit">
-          <Card>
-            <CardContent className="p-6">
-              <FilterSidebar />
-            </CardContent>
-          </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-10">
+        {/* DESKTOP SIDEBAR */}
+        <aside className="hidden lg:block">
+          <div className="sticky top-28">
+            <FiltersPanel
+              filters={filters}
+              onChange={updateFilters}
+              onClear={clearAll}
+            />
+          </div>
         </aside>
 
-        {/* Mobile Sidebar Overlay */}
+        {/* MOBILE DRAWER */}
         <AnimatePresence>
-          {isSidebarOpen && (
+          {drawerOpen && (
             <>
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                onClick={() => setIsSidebarOpen(false)}
-                className="fixed inset-0 bg-black/40 z-50 md:hidden"
+                onClick={() => setDrawerOpen(false)}
+                className="fixed inset-0 z-50 bg-black/50 lg:hidden"
               />
               <motion.aside
                 initial={{ x: "100%" }}
                 animate={{ x: 0 }}
                 exit={{ x: "100%" }}
-                transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                className="fixed inset-y-0 right-0 w-[300px] bg-background z-50 p-6 shadow-2xl md:hidden overflow-y-auto"
+                transition={{ type: "spring", stiffness: 240, damping: 26 }}
+                className="fixed inset-y-0 right-0 z-50 w-[360px] max-w-[92vw] bg-background p-6 overflow-y-auto lg:hidden shadow-pop"
               >
-                <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-xl font-bold">Фильтры</h2>
-                  <button onClick={() => setIsSidebarOpen(false)} className="p-2 hover:bg-accent rounded-full">
-                    <X size={20} />
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-lg font-bold">Фильтры</h2>
+                  <button
+                    onClick={() => setDrawerOpen(false)}
+                    className="h-9 w-9 rounded-full hover:bg-muted flex items-center justify-center"
+                  >
+                    <X size={18} />
                   </button>
                 </div>
-                <FilterSidebar />
-                <div className="mt-8 pt-6 border-t">
-                  <Button className="w-full" onClick={() => setIsSidebarOpen(false)}>
-                    Показать результаты
+                <FiltersPanel
+                  filters={filters}
+                  onChange={updateFilters}
+                  onClear={clearAll}
+                />
+                <div className="mt-8 pt-6 border-t flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={clearAll}
+                    className="flex-1"
+                  >
+                    Сбросить
+                  </Button>
+                  <Button
+                    onClick={() => setDrawerOpen(false)}
+                    className="flex-1"
+                  >
+                    Показать {pagination.total}
                   </Button>
                 </div>
               </motion.aside>
@@ -260,170 +230,202 @@ export default function ListingsPage() {
           )}
         </AnimatePresence>
 
-        {/* Results Grid */}
-        <div className="lg:col-span-3">
+        {/* RESULTS */}
+        <section>
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-[400px] rounded-xl bg-muted animate-pulse" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+              {Array.from({ length: 9 }).map((_, i) => (
+                <ListingSkeleton key={i} />
               ))}
             </div>
           ) : isError ? (
-            <div className="text-center py-20 bg-muted/30 rounded-3xl border border-dashed">
-              <p className="text-destructive font-semibold">Произошла ошибка при загрузке</p>
-              <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
-                Попробовать снова
-              </Button>
-            </div>
+            <EmptyState
+              icon={Search}
+              title="Не удалось загрузить"
+              description="Проверьте соединение и попробуйте обновить страницу."
+              action={
+                <Button onClick={() => window.location.reload()}>
+                  Обновить
+                </Button>
+              }
+            />
           ) : listings.length === 0 ? (
-            <div className="text-center py-20 bg-muted/30 rounded-3xl border border-dashed">
-              <div className="bg-muted w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Search size={24} className="text-muted-foreground" />
-              </div>
-              <h3 className="text-xl font-bold mb-2">Ничего не найдено</h3>
-              <p className="text-muted-foreground mb-6">Попробуйте изменить параметры поиска или сбросить фильтры.</p>
-              <Button onClick={clearFilters}>Сбросить все фильтры</Button>
-            </div>
+            <EmptyState
+              icon={MapPin}
+              title="Ничего не найдено"
+              description="Попробуйте изменить параметры поиска или сбросить фильтры."
+              action={<Button onClick={clearAll}>Сбросить фильтры</Button>}
+            />
           ) : (
-            <motion.div 
-              layout
-              className={cn(
-                "grid gap-6",
-                viewMode === "grid" 
-                  ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3" 
-                  : "grid-cols-1"
-              )}
-            >
-              {listings.map((listing) => (
-                <motion.div
-                  layout
-                  key={listing.id}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <Card className="h-full group overflow-hidden hover:shadow-xl transition-all duration-300 border-border/50">
-                    <div className="relative aspect-[4/3] overflow-hidden">
-                      <img
-                        src={listing.photos?.[0] || "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80"}
-                        alt={listing.title}
-                        className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500"
-                      />
-                      <div className="absolute top-3 left-3 flex flex-wrap gap-2">
-                        {listing.host?.isIdVerified && (
-                          <Badge variant="success" className="shadow-sm">Проверено</Badge>
-                        )}
-                        <Badge variant="secondary" className="shadow-sm backdrop-blur-md bg-white/80">
-                          {listing.city}
-                        </Badge>
-                      </div>
-                      <div className="absolute bottom-3 right-3">
-                        <Badge className="bg-primary/90 text-primary-foreground backdrop-blur-md px-3 py-1 text-sm font-bold shadow-lg">
-                          {Number(listing.monthlyRent).toLocaleString("ru-RU")} ₸
-                        </Badge>
-                      </div>
-                    </div>
-                    
-                    <CardContent className="p-5">
-                      <h3 className="font-bold text-lg mb-2 line-clamp-1 group-hover:text-primary transition-colors">
-                        {listing.title}
-                      </h3>
-                      <div className="flex items-center text-muted-foreground text-sm gap-1 mb-4">
-                        <MapPin size={14} className="text-primary" />
-                        <span className="line-clamp-1">{listing.district || "Район не указан"}, {listing.city}</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground border-t pt-4">
-                        <div className="flex flex-col">
-                          <span className="text-foreground font-semibold">{listing.availableRooms} / {listing.totalRooms}</span>
-                          <span className="text-[10px] uppercase tracking-wider">Комнат</span>
-                        </div>
-                        <div className="w-px h-8 bg-border" />
-                        <div className="flex flex-col">
-                          <span className="text-foreground font-semibold">
-                            {listing.furnished ? "Есть" : "Нет"}
-                          </span>
-                          <span className="text-[10px] uppercase tracking-wider">Мебель</span>
-                        </div>
-                        <div className="w-px h-8 bg-border" />
-                        <div className="flex flex-col">
-                          <span className="text-foreground font-semibold">
-                            {listing.internetIncluded ? "Да" : "Нет"}
-                          </span>
-                          <span className="text-[10px] uppercase tracking-wider">Wi-Fi</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                    
-                    <CardFooter className="p-5 pt-0">
-                      <Button 
-                        asChild 
-                        className="w-full font-bold h-12"
-                        onClick={() => window.location.href = `/listings/${listing.id}`}
-                      >
-                        Посмотреть детали
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                </motion.div>
-              ))}
-            </motion.div>
-          )}
-
-          {/* Pagination */}
-          {!isLoading && listings.length > 0 && (
-            <div className="flex items-center justify-center gap-4 mt-12">
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={pagination.page <= 1}
-                onClick={() => setPage(pagination.page - 1)}
-              >
-                <ChevronLeft size={20} />
-              </Button>
-              
-              <div className="flex items-center gap-1">
-                {[...Array(pagination.totalPages)].map((_, i) => {
-                  const page = i + 1;
-                  // Only show current, first, last and 1 around current
-                  if (
-                    page === 1 || 
-                    page === pagination.totalPages || 
-                    (page >= pagination.page - 1 && page <= pagination.page + 1)
-                  ) {
-                    return (
-                      <Button
-                        key={page}
-                        variant={pagination.page === page ? "primary" : "ghost"}
-                        size="sm"
-                        className="w-10 h-10"
-                        onClick={() => setPage(page)}
-                      >
-                        {page}
-                      </Button>
-                    );
-                  } else if (
-                    page === pagination.page - 2 || 
-                    page === pagination.page + 2
-                  ) {
-                    return <span key={page} className="px-2">...</span>;
-                  }
-                  return null;
-                })}
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-10">
+                {listings.map((listing) => (
+                  <ListingCard
+                    key={listing.id}
+                    listing={listing}
+                    isFavorite={!!favoriteMap[listing.id]}
+                    onToggleFavorite={(l) => toggleFavorite.mutate(l)}
+                  />
+                ))}
               </div>
 
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={pagination.page >= pagination.totalPages}
-                onClick={() => setPage(pagination.page + 1)}
-              >
-                <ChevronRight size={20} />
-              </Button>
-            </div>
+              {pagination.totalPages > 1 && (
+                <Pagination
+                  page={pagination.page}
+                  totalPages={pagination.totalPages}
+                  onChange={setPage}
+                />
+              )}
+            </>
           )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function FiltersPanel({ filters, onChange, onClear }) {
+  return (
+    <div className="rounded-2xl border p-5 space-y-5 bg-card">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold">Фильтры</h3>
+        <button
+          onClick={onClear}
+          className="text-xs font-semibold text-primary hover:underline"
+        >
+          Сбросить
+        </button>
+      </div>
+
+      <Select
+        label="Город"
+        value={filters.city}
+        onChange={(e) => onChange({ city: e.target.value })}
+        options={CITY_OPTIONS}
+      />
+
+      <Input
+        label="Район"
+        placeholder="Например, Медеуский"
+        value={filters.district}
+        onChange={(e) => onChange({ district: e.target.value })}
+      />
+
+      <div>
+        <label className="text-sm font-semibold">Бюджет, ₸</label>
+        <div className="grid grid-cols-2 gap-2 mt-1.5">
+          <Input
+            type="number"
+            placeholder="От"
+            value={filters.minPrice}
+            onChange={(e) => onChange({ minPrice: e.target.value })}
+          />
+          <Input
+            type="number"
+            placeholder="До"
+            value={filters.maxPrice}
+            onChange={(e) => onChange({ maxPrice: e.target.value })}
+          />
+        </div>
+      </div>
+
+      <div className="pt-1">
+        <h4 className="text-sm font-semibold mb-3">Удобства</h4>
+        <div className="space-y-2.5">
+          <Checkbox
+            id="f-furn"
+            label="С мебелью"
+            checked={filters.furnished === "true"}
+            onChange={(e) =>
+              onChange({ furnished: e.target.checked ? "true" : "" })
+            }
+          />
+          <Checkbox
+            id="f-wifi"
+            label="Интернет включён"
+            checked={filters.internetIncluded === "true"}
+            onChange={(e) =>
+              onChange({ internetIncluded: e.target.checked ? "true" : "" })
+            }
+          />
+          <Checkbox
+            id="f-pic"
+            label="Только с фото"
+            checked={filters.hasPhotos === "true"}
+            onChange={(e) =>
+              onChange({ hasPhotos: e.target.checked ? "true" : "" })
+            }
+          />
+          <Checkbox
+            id="f-ver"
+            label="Проверенные хозяева"
+            checked={filters.verifiedHostsOnly === "true"}
+            onChange={(e) =>
+              onChange({ verifiedHostsOnly: e.target.checked ? "true" : "" })
+            }
+          />
         </div>
       </div>
     </div>
   );
+}
+
+function Pagination({ page, totalPages, onChange }) {
+  const nums = [];
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || (i >= page - 1 && i <= page + 1)) {
+      nums.push(i);
+    } else if (i === page - 2 || i === page + 2) {
+      nums.push("…");
+    }
+  }
+  const clean = nums.filter((n, idx, arr) => n !== arr[idx - 1]);
+
+  return (
+    <div className="flex items-center justify-center gap-2 mt-14">
+      <button
+        disabled={page <= 1}
+        onClick={() => onChange(page - 1)}
+        className="h-10 w-10 rounded-full border flex items-center justify-center disabled:opacity-40 hover:bg-muted"
+      >
+        <ChevronLeft size={16} />
+      </button>
+      {clean.map((n, i) =>
+        n === "…" ? (
+          <span key={`e-${i}`} className="px-2 text-muted-foreground">
+            …
+          </span>
+        ) : (
+          <button
+            key={n}
+            onClick={() => onChange(n)}
+            className={cn(
+              "h-10 w-10 rounded-full text-sm font-semibold transition-colors",
+              n === page
+                ? "bg-foreground text-background"
+                : "hover:bg-muted"
+            )}
+          >
+            {n}
+          </button>
+        )
+      )}
+      <button
+        disabled={page >= totalPages}
+        onClick={() => onChange(page + 1)}
+        className="h-10 w-10 rounded-full border flex items-center justify-center disabled:opacity-40 hover:bg-muted"
+      >
+        <ChevronRight size={16} />
+      </button>
+    </div>
+  );
+}
+
+function pluralize(n) {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return "вариант";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20))
+    return "варианта";
+  return "вариантов";
 }

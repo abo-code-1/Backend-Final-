@@ -1,86 +1,98 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
+import { Heart } from "lucide-react";
 import { apiClient } from "../api/client";
+import Button from "../components/common/Button";
 import ConfirmModal from "../components/common/ConfirmModal";
+import PageHeader from "../components/common/PageHeader";
+import EmptyState from "../components/common/EmptyState";
+import ListingCard from "../components/listings/ListingCard";
+import ListingSkeleton from "../components/listings/ListingSkeleton";
 
 export default function FavoritesPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [pendingRemoveId, setPendingRemoveId] = useState(null);
+  const [pendingRemove, setPendingRemove] = useState(null);
 
-  const loadFavorites = async () => {
+  const load = async () => {
     setLoading(true);
     try {
       const { data } = await apiClient.get("/favorites");
       setItems(data.items || []);
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Не удалось загрузить избранное");
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Не удалось загрузить");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadFavorites();
+    load();
   }, []);
 
-  const removeFavorite = async () => {
-    if (!pendingRemoveId) return;
+  const doRemove = async () => {
+    if (!pendingRemove) return;
     try {
-      await apiClient.delete(`/favorites/${pendingRemoveId}`);
+      await apiClient.delete(`/favorites/${pendingRemove}`);
       toast.success("Удалено из избранного");
-      setPendingRemoveId(null);
-      loadFavorites();
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Не удалось удалить из избранного");
+      setPendingRemove(null);
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Не удалось удалить");
     }
   };
 
   return (
-    <main className="page">
-      <h1>Избранное</h1>
-      {loading ? (
-        <p>Загрузка...</p>
-      ) : (
-        <div className="listings-grid">
-          {items.map((fav) => (
-            <article key={fav.id} className="card">
-              <h3>{fav.listing.title}</h3>
-              <p>
-                {fav.listing.city}
-                {fav.listing.district ? `, ${fav.listing.district}` : ""}
-              </p>
-              <p className="price">
-                {Number(fav.listing.monthlyRent).toLocaleString("ru-RU")} ₸ / мес
-              </p>
-              <div className="row">
-                <Link className="btn" to={`/listings/${fav.listing.id}`}>
-                  Открыть
-                </Link>
-                <button
-                  className="btn btn-danger"
-                  type="button"
-                  onClick={() => setPendingRemoveId(fav.listing.id)}
-                >
-                  Удалить
-                </button>
+    <div>
+      <PageHeader
+        eyebrow="Профиль"
+        title="Избранное"
+        subtitle="Объявления, которые вам понравились. Храним без ограничений."
+      />
+
+      <div className="mt-8">
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <ListingSkeleton key={i} />
+            ))}
+          </div>
+        ) : items.length === 0 ? (
+          <EmptyState
+            icon={Heart}
+            title="Пока нет избранного"
+            description="Откройте поиск и сохраните интересные варианты, нажав на сердечко."
+            action={
+              <Link to="/listings">
+                <Button>К объявлениям</Button>
+              </Link>
+            }
+          />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-10">
+            {items.map((fav) => (
+              <div key={fav.id} className="group relative">
+                <ListingCard
+                  listing={fav.listing}
+                  isFavorite
+                  onToggleFavorite={() => setPendingRemove(fav.listing.id)}
+                />
               </div>
-            </article>
-          ))}
-          {items.length === 0 && <p>Пока нет избранных объявлений.</p>}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
 
       <ConfirmModal
-        isOpen={Boolean(pendingRemoveId)}
-        title="Delete this favorite?"
-        description="This listing will be removed from your favorites."
-        confirmText="Delete"
-        cancelText="Cancel"
-        onCancel={() => setPendingRemoveId(null)}
-        onConfirm={removeFavorite}
+        isOpen={Boolean(pendingRemove)}
+        title="Убрать из избранного?"
+        description="Объявление можно будет вернуть снова в любой момент."
+        confirmText="Убрать"
+        cancelText="Отмена"
+        onCancel={() => setPendingRemove(null)}
+        onConfirm={doRemove}
       />
-    </main>
+    </div>
   );
 }

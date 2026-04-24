@@ -10,33 +10,38 @@ export default function Button({
   children,
   ...props
 }) {
+  const base =
+    "inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none select-none";
+
   const variants = {
-    primary: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm",
-    secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-    outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-    ghost: "hover:bg-accent hover:text-accent-foreground",
-    destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+    primary:
+      "bg-primary text-primary-foreground hover:bg-primary-dark active:scale-[0.98] shadow-soft",
+    secondary:
+      "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]",
+    outline:
+      "border border-foreground/20 bg-background text-foreground hover:border-foreground hover:shadow-soft",
+    ghost: "text-foreground hover:bg-muted",
+    link: "text-foreground underline underline-offset-4 hover:text-primary",
+    destructive:
+      "bg-destructive text-destructive-foreground hover:bg-destructive/90 active:scale-[0.98]",
+    gradient:
+      "text-white shadow-card active:scale-[0.98] bg-gradient-to-r from-[#FF385C] via-[#E61E4D] to-[#D70466]",
   };
 
   const sizes = {
-    sm: "h-9 px-3 text-xs",
-    md: "h-10 px-4 py-2",
-    lg: "h-11 px-8 text-lg",
+    sm: "h-9 px-3.5 text-sm",
+    md: "h-11 px-5 text-sm",
+    lg: "h-14 px-7 text-base",
     icon: "h-10 w-10",
   };
 
   return (
     <button
-      className={cn(
-        "inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
-        variants[variant],
-        sizes[size],
-        className
-      )}
+      className={cn(base, variants[variant], sizes[size], className)}
       disabled={loading || disabled}
       {...props}
     >
-      {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+      {loading && <Loader2 className="h-4 w-4 animate-spin" />}
       {children}
     </button>
   );

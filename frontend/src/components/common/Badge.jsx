@@ -2,18 +2,20 @@ import { cn } from "../../utils/cn";
 
 export default function Badge({ className, variant = "default", ...props }) {
   const variants = {
-    default: "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
-    secondary: "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
-    destructive: "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
-    outline: "text-foreground",
-    success: "border-transparent bg-emerald-500 text-white hover:bg-emerald-500/80",
-    warning: "border-transparent bg-amber-500 text-white hover:bg-amber-500/80",
+    default: "bg-foreground text-background",
+    secondary: "bg-muted text-foreground",
+    outline: "border border-border text-foreground",
+    primary: "bg-primary text-primary-foreground",
+    success: "bg-success/10 text-success",
+    warning: "bg-warning/15 text-warning-foreground",
+    destructive: "bg-destructive/10 text-destructive",
+    glass: "bg-white/90 backdrop-blur text-foreground shadow-soft",
   };
 
   return (
-    <div
+    <span
       className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold tracking-tight",
         variants[variant],
         className
       )}

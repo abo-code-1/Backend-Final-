@@ -1,21 +1,50 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { toast } from "react-toastify";
+import { Plus, Trash2, ChevronLeft, Save, ImagePlus } from "lucide-react";
 import { apiClient } from "../api/client";
+import Button from "../components/common/Button";
+import Input from "../components/common/Input";
+import Select from "../components/common/Select";
+import Checkbox from "../components/common/Checkbox";
+import Textarea from "../components/common/Textarea";
+import PageHeader from "../components/common/PageHeader";
+import { PageSpinner } from "../components/common/Spinner";
 
 const emptyBill = {
   category: "utilities",
   label: "",
   amountKzt: "",
   isIncludedInRent: false,
-  notes: ""
+  notes: "",
 };
+
+const CITY_OPTIONS = [
+  { label: "Алматы", value: "almaty" },
+  { label: "Астана", value: "astana" },
+  { label: "Шымкент", value: "shymkent" },
+];
+
+const STATUS_OPTIONS = [
+  { label: "Черновик", value: "draft" },
+  { label: "Активно", value: "active" },
+  { label: "В архиве", value: "archived" },
+];
+
+const BILL_CATEGORIES = [
+  { label: "Аренда", value: "rent" },
+  { label: "Коммунальные", value: "utilities" },
+  { label: "Интернет", value: "internet" },
+  { label: "Уборка", value: "cleaning" },
+  { label: "Другое", value: "other" },
+];
 
 export default function ListingFormPage() {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(isEdit);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -34,16 +63,16 @@ export default function ListingFormPage() {
     status: "draft",
     photosText: "",
     houseRulesText: "",
-    bills: [{ ...emptyBill }]
+    bills: [{ ...emptyBill }],
   });
 
-  const titleText = useMemo(
+  const title = useMemo(
     () => (isEdit ? "Редактирование объявления" : "Новое объявление"),
     [isEdit]
   );
 
   useEffect(() => {
-    const loadEditData = async () => {
+    const load = async () => {
       if (!isEdit) return;
       try {
         const { data } = await apiClient.get(`/listings/${id}`);
@@ -65,7 +94,9 @@ export default function ListingFormPage() {
           petsAllowed: Boolean(item.petsAllowed),
           status: item.status || "draft",
           photosText: (item.photos || []).join("\n"),
-          houseRulesText: (item.houseRules || []).map((r) => r.ruleText).join("\n"),
+          houseRulesText: (item.houseRules || [])
+            .map((r) => r.ruleText)
+            .join("\n"),
           bills:
             item.bills && item.bills.length
               ? item.bills.map((b) => ({
@@ -74,36 +105,34 @@ export default function ListingFormPage() {
                   label: b.label,
                   amountKzt: b.amountKzt,
                   isIncludedInRent: Boolean(b.isIncludedInRent),
-                  notes: b.notes || ""
+                  notes: b.notes || "",
                 }))
-              : [{ ...emptyBill }]
+              : [{ ...emptyBill }],
         });
-      } catch (error) {
-        toast.error(error.response?.data?.message || "Не удалось загрузить объявление");
+      } catch (e) {
+        toast.error(e.response?.data?.message || "Не удалось загрузить");
       } finally {
         setLoading(false);
       }
     };
-    loadEditData();
+    load();
   }, [id, isEdit]);
 
-  const updateBill = (index, patch) => {
-    setForm((prev) => {
-      const bills = [...prev.bills];
-      bills[index] = { ...bills[index], ...patch };
-      return { ...prev, bills };
+  const setField = (patch) => setForm((p) => ({ ...p, ...patch }));
+  const updateBill = (i, patch) =>
+    setForm((p) => {
+      const bills = [...p.bills];
+      bills[i] = { ...bills[i], ...patch };
+      return { ...p, bills };
     });
-  };
+  const addBill = () =>
+    setForm((p) => ({ ...p, bills: [...p.bills, { ...emptyBill }] }));
+  const removeBill = (i) =>
+    setForm((p) => ({ ...p, bills: p.bills.filter((_, idx) => idx !== i) }));
 
-  const addBill = () => setForm((prev) => ({ ...prev, bills: [...prev.bills, { ...emptyBill }] }));
-  const removeBill = (index) =>
-    setForm((prev) => ({
-      ...prev,
-      bills: prev.bills.filter((_, i) => i !== index)
-    }));
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
     const payload = {
       title: form.title,
       description: form.description,
@@ -122,21 +151,21 @@ export default function ListingFormPage() {
       status: form.status,
       photos: form.photosText
         .split("\n")
-        .map((x) => x.trim())
+        .map((s) => s.trim())
         .filter(Boolean),
       houseRules: form.houseRulesText
         .split("\n")
-        .map((x, index) => ({ ruleText: x.trim(), orderIndex: index }))
-        .filter((x) => x.ruleText),
+        .map((s, i) => ({ ruleText: s.trim(), orderIndex: i }))
+        .filter((r) => r.ruleText),
       bills: form.bills
-        .filter((bill) => bill.label && bill.amountKzt !== "")
-        .map((bill) => ({
-          category: bill.category,
-          label: bill.label,
-          amountKzt: Number(bill.amountKzt),
-          isIncludedInRent: bill.isIncludedInRent,
-          notes: bill.notes
-        }))
+        .filter((b) => b.label && b.amountKzt !== "")
+        .map((b) => ({
+          category: b.category,
+          label: b.label,
+          amountKzt: Number(b.amountKzt),
+          isIncludedInRent: b.isIncludedInRent,
+          notes: b.notes,
+        })),
     };
 
     try {
@@ -148,203 +177,257 @@ export default function ListingFormPage() {
         toast.success("Объявление создано");
       }
       navigate("/my-listings");
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Не удалось сохранить объявление");
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Не удалось сохранить");
+    } finally {
+      setSaving(false);
     }
   };
 
-  if (loading) {
-    return (
-      <main className="page">
-        <p>Загрузка...</p>
-      </main>
-    );
-  }
+  if (loading) return <PageSpinner />;
 
   return (
-    <main className="page">
-      <h1>{titleText}</h1>
-      <form className="form listing-form" onSubmit={handleSubmit}>
-        <label>
-          Заголовок
-          <input
-            value={form.title}
-            onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
-            required
-          />
-        </label>
-        <label>
-          Описание
-          <textarea
-            rows={4}
-            value={form.description}
-            onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-            required
-          />
-        </label>
-        <label>
-          Город
-          <select
-            value={form.city}
-            onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))}
-          >
-            <option value="almaty">Almaty</option>
-            <option value="astana">Astana</option>
-            <option value="shymkent">Shymkent</option>
-          </select>
-        </label>
-        <label>
-          Район
-          <input
-            value={form.district}
-            onChange={(e) => setForm((prev) => ({ ...prev, district: e.target.value }))}
-          />
-        </label>
-        <label>
-          Адрес
-          <input
-            value={form.address}
-            onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))}
-          />
-        </label>
-        <label>
-          Цена в месяц (₸)
-          <input
-            type="number"
-            value={form.monthlyRent}
-            onChange={(e) => setForm((prev) => ({ ...prev, monthlyRent: e.target.value }))}
-            required
-          />
-        </label>
-        <label>
-          Залог (₸)
-          <input
-            type="number"
-            value={form.deposit}
-            onChange={(e) => setForm((prev) => ({ ...prev, deposit: e.target.value }))}
-          />
-        </label>
-        <div className="row">
-          <label>
-            Всего комнат
-            <input
-              type="number"
-              value={form.totalRooms}
-              onChange={(e) => setForm((prev) => ({ ...prev, totalRooms: e.target.value }))}
-            />
-          </label>
-          <label>
-            Доступно комнат
-            <input
-              type="number"
-              value={form.availableRooms}
-              onChange={(e) => setForm((prev) => ({ ...prev, availableRooms: e.target.value }))}
-            />
-          </label>
-        </div>
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={form.furnished}
-            onChange={(e) => setForm((prev) => ({ ...prev, furnished: e.target.checked }))}
-          />
-          Меблировано
-        </label>
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={form.internetIncluded}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, internetIncluded: e.target.checked }))
-            }
-          />
-          Интернет включен
-        </label>
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={form.petsAllowed}
-            onChange={(e) => setForm((prev) => ({ ...prev, petsAllowed: e.target.checked }))}
-          />
-          Можно с питомцами
-        </label>
-        <label>
-          Статус
-          <select
-            value={form.status}
-            onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}
-          >
-            <option value="draft">Draft</option>
-            <option value="active">Active</option>
-            <option value="archived">Archived</option>
-          </select>
-        </label>
-        <label>
-          Фото (по одному URL в строке)
-          <textarea
-            rows={3}
-            value={form.photosText}
-            onChange={(e) => setForm((prev) => ({ ...prev, photosText: e.target.value }))}
-          />
-        </label>
-        <label>
-          Правила дома (по одному правилу в строке)
-          <textarea
-            rows={3}
-            value={form.houseRulesText}
-            onChange={(e) => setForm((prev) => ({ ...prev, houseRulesText: e.target.value }))}
-          />
-        </label>
+    <div className="max-w-3xl mx-auto">
+      <Link
+        to="/my-listings"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4"
+      >
+        <ChevronLeft size={16} /> Мои объявления
+      </Link>
+      <PageHeader
+        eyebrow={isEdit ? "Редактирование" : "Новое объявление"}
+        title={title}
+        subtitle="Расскажите о жилье — чем подробнее, тем больше откликов."
+      />
 
-        <section className="card">
-          <h3>Bills</h3>
-          {form.bills.map((bill, index) => (
-            <div key={bill.id || index} className="bill-row">
-              <select
-                value={bill.category}
-                onChange={(e) => updateBill(index, { category: e.target.value })}
+      <form onSubmit={onSubmit} className="space-y-10 mt-8">
+        <Section title="Основное">
+          <Input
+            label="Заголовок"
+            required
+            placeholder="Светлая комната в Медеу"
+            value={form.title}
+            onChange={(e) => setField({ title: e.target.value })}
+          />
+          <Textarea
+            label="Описание"
+            required
+            rows={5}
+            placeholder="Расскажите о квартире, атмосфере, соседях..."
+            value={form.description}
+            onChange={(e) => setField({ description: e.target.value })}
+          />
+          <div className="grid md:grid-cols-3 gap-4">
+            <Select
+              label="Город"
+              value={form.city}
+              onChange={(e) => setField({ city: e.target.value })}
+              options={CITY_OPTIONS}
+            />
+            <Input
+              label="Район"
+              value={form.district}
+              onChange={(e) => setField({ district: e.target.value })}
+            />
+            <Input
+              label="Адрес"
+              value={form.address}
+              onChange={(e) => setField({ address: e.target.value })}
+            />
+          </div>
+        </Section>
+
+        <Section title="Цена и условия">
+          <div className="grid md:grid-cols-2 gap-4">
+            <Input
+              label="Аренда в месяц, ₸"
+              type="number"
+              required
+              value={form.monthlyRent}
+              onChange={(e) => setField({ monthlyRent: e.target.value })}
+            />
+            <Input
+              label="Залог, ₸"
+              type="number"
+              value={form.deposit}
+              onChange={(e) => setField({ deposit: e.target.value })}
+            />
+            <Input
+              label="Всего комнат"
+              type="number"
+              min={1}
+              value={form.totalRooms}
+              onChange={(e) => setField({ totalRooms: e.target.value })}
+            />
+            <Input
+              label="Свободно комнат"
+              type="number"
+              min={0}
+              value={form.availableRooms}
+              onChange={(e) => setField({ availableRooms: e.target.value })}
+            />
+            <Input
+              label="Макс. жильцов"
+              type="number"
+              min={1}
+              value={form.maxOccupants}
+              onChange={(e) => setField({ maxOccupants: e.target.value })}
+            />
+            <Input
+              label="Сейчас жильцов"
+              type="number"
+              min={0}
+              value={form.currentOccupants}
+              onChange={(e) => setField({ currentOccupants: e.target.value })}
+            />
+          </div>
+          <div className="grid sm:grid-cols-3 gap-3 pt-2">
+            <Checkbox
+              id="furn"
+              label="С мебелью"
+              checked={form.furnished}
+              onChange={(e) => setField({ furnished: e.target.checked })}
+            />
+            <Checkbox
+              id="wifi"
+              label="Интернет включён"
+              checked={form.internetIncluded}
+              onChange={(e) =>
+                setField({ internetIncluded: e.target.checked })
+              }
+            />
+            <Checkbox
+              id="pets"
+              label="Можно с питомцем"
+              checked={form.petsAllowed}
+              onChange={(e) => setField({ petsAllowed: e.target.checked })}
+            />
+          </div>
+          <Select
+            label="Статус"
+            value={form.status}
+            onChange={(e) => setField({ status: e.target.value })}
+            options={STATUS_OPTIONS}
+          />
+        </Section>
+
+        <Section
+          title="Фото"
+          description="По одной ссылке на строку. Добавьте 3–5 качественных фото."
+        >
+          <Textarea
+            icon={ImagePlus}
+            placeholder="https://..."
+            rows={4}
+            value={form.photosText}
+            onChange={(e) => setField({ photosText: e.target.value })}
+          />
+        </Section>
+
+        <Section
+          title="Правила дома"
+          description="По одному правилу на строку. Например: «Не курить в квартире»."
+        >
+          <Textarea
+            rows={4}
+            value={form.houseRulesText}
+            onChange={(e) => setField({ houseRulesText: e.target.value })}
+          />
+        </Section>
+
+        <Section
+          title="Ежемесячные платежи"
+          description="Добавьте коммуналку, интернет и прочие обязательные расходы."
+          actions={
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addBill}
+            >
+              <Plus size={14} /> Добавить
+            </Button>
+          }
+        >
+          <div className="space-y-3">
+            {form.bills.map((bill, i) => (
+              <div
+                key={bill.id || i}
+                className="grid grid-cols-1 md:grid-cols-[160px_1fr_140px_auto_auto] gap-3 items-end p-4 rounded-xl border bg-muted/20"
               >
-                <option value="rent">rent</option>
-                <option value="utilities">utilities</option>
-                <option value="internet">internet</option>
-                <option value="cleaning">cleaning</option>
-                <option value="other">other</option>
-              </select>
-              <input
-                placeholder="Label"
-                value={bill.label}
-                onChange={(e) => updateBill(index, { label: e.target.value })}
-              />
-              <input
-                type="number"
-                placeholder="Amount"
-                value={bill.amountKzt}
-                onChange={(e) => updateBill(index, { amountKzt: e.target.value })}
-              />
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={bill.isIncludedInRent}
+                <Select
+                  label="Тип"
+                  value={bill.category}
                   onChange={(e) =>
-                    updateBill(index, { isIncludedInRent: e.target.checked })
+                    updateBill(i, { category: e.target.value })
+                  }
+                  options={BILL_CATEGORIES}
+                />
+                <Input
+                  label="Название"
+                  value={bill.label}
+                  onChange={(e) => updateBill(i, { label: e.target.value })}
+                />
+                <Input
+                  label="Сумма, ₸"
+                  type="number"
+                  value={bill.amountKzt}
+                  onChange={(e) =>
+                    updateBill(i, { amountKzt: e.target.value })
                   }
                 />
-                Included
-              </label>
-              <button className="btn btn-danger" type="button" onClick={() => removeBill(index)}>
-                Remove
-              </button>
-            </div>
-          ))}
-          <button className="btn btn-secondary" type="button" onClick={addBill}>
-            Add bill
-          </button>
-        </section>
+                <Checkbox
+                  id={`bill-incl-${i}`}
+                  label="Включено"
+                  checked={bill.isIncludedInRent}
+                  onChange={(e) =>
+                    updateBill(i, { isIncludedInRent: e.target.checked })
+                  }
+                />
+                <button
+                  type="button"
+                  onClick={() => removeBill(i)}
+                  className="h-11 w-11 rounded-lg border hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 flex items-center justify-center"
+                  aria-label="Удалить платёж"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </Section>
 
-        <button className="btn" type="submit">
-          {isEdit ? "Сохранить изменения" : "Создать объявление"}
-        </button>
+        <div className="flex justify-end gap-3 pt-4 border-t">
+          <Button
+            variant="outline"
+            type="button"
+            onClick={() => navigate("/my-listings")}
+          >
+            Отмена
+          </Button>
+          <Button type="submit" loading={saving}>
+            <Save size={16} />
+            {isEdit ? "Сохранить изменения" : "Создать объявление"}
+          </Button>
+        </div>
       </form>
-    </main>
+    </div>
+  );
+}
+
+function Section({ title, description, actions, children }) {
+  return (
+    <section className="space-y-4">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">{title}</h2>
+          {description && (
+            <p className="text-sm text-muted-foreground">{description}</p>
+          )}
+        </div>
+        {actions}
+      </div>
+      <div className="space-y-4">{children}</div>
+    </section>
   );
 }

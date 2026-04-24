@@ -1,43 +1,53 @@
 import { useMemo, useState } from "react";
 import { useSelector } from "react-redux";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
-import { apiClient } from "../api/client";
-import { motion } from "framer-motion";
-import { 
-  MapPin, 
-  Heart, 
-  Share2, 
-  ChevronLeft, 
-  Info, 
-  CheckCircle2, 
-  User, 
-  Calendar, 
+import {
+  MapPin,
+  Heart,
+  Share2,
+  ChevronLeft,
+  CheckCircle2,
+  User,
+  Calendar,
   ShieldCheck,
-  CreditCard,
-  Home,
+  Home as HomeIcon,
   Wifi,
   Armchair,
-  Users
+  Users,
+  Star,
+  PawPrint,
+  MessageCircle,
 } from "lucide-react";
+import { apiClient } from "../api/client";
 import Button from "../components/common/Button";
 import Badge from "../components/common/Badge";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/common/Card";
+import Textarea from "../components/common/Textarea";
+import { PageSpinner } from "../components/common/Spinner";
 import { cn } from "../utils/cn";
+
+const FALLBACKS = [
+  "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1600&q=80",
+  "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=80",
+];
 
 export default function ListingDetailsPage() {
   const { id } = useParams();
   const queryClient = useQueryClient();
-  const { token } = useSelector((state) => state.auth);
-  const [applyMessage, setApplyMessage] = useState("");
+  const navigate = useNavigate();
+  const { token } = useSelector((s) => s.auth);
+  const [message, setMessage] = useState("");
 
-  const { data: listingData, isLoading } = useQuery({
+  const { data: listing, isLoading } = useQuery({
     queryKey: ["listing", id],
     queryFn: async () => {
       const { data } = await apiClient.get(`/listings/${id}`);
       return data.item;
-    }
+    },
   });
 
   const { data: favoriteData } = useQuery({
@@ -45,346 +55,446 @@ export default function ListingDetailsPage() {
     queryFn: async () => {
       if (!token) return { isFavorite: false };
       const { data } = await apiClient.get("/favorites/check", {
-        params: { listingId: id }
+        params: { listingId: id },
       });
       return data;
     },
-    enabled: !!token
+    enabled: !!token,
   });
 
-  const toggleFavoriteMutation = useMutation({
+  const toggleFavorite = useMutation({
     mutationFn: async () => {
+      if (!token) {
+        toast.info("Войдите, чтобы сохранять в избранное");
+        throw new Error("no-auth");
+      }
       if (favoriteData?.isFavorite) {
-        return apiClient.delete(`/favorites/${id}`);
+        await apiClient.delete(`/favorites/${id}`);
       } else {
-        return apiClient.post("/favorites", { listingId: Number(id) });
+        await apiClient.post("/favorites", { listingId: Number(id) });
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(["favorite", id]);
-      toast.success(favoriteData?.isFavorite ? "Удалено из избранного" : "Добавлено в избранное");
-    }
+      queryClient.invalidateQueries({ queryKey: ["favorite", id] });
+      toast.success(
+        favoriteData?.isFavorite
+          ? "Удалено из избранного"
+          : "Добавлено в избранное"
+      );
+    },
   });
 
   const applyMutation = useMutation({
-    mutationFn: async (message) => {
-      return apiClient.post(`/listings/${id}/applications`, { message });
-    },
+    mutationFn: async (msg) =>
+      apiClient.post(`/listings/${id}/applications`, { message: msg }),
     onSuccess: () => {
-      setApplyMessage("");
-      toast.success("Заявка успешно отправлена!");
+      setMessage("");
+      toast.success("Заявка отправлена!");
     },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || "Не удалось отправить заявку");
-    }
+    onError: (err) =>
+      toast.error(err.response?.data?.message || "Не удалось отправить"),
   });
 
-  const totalMonthlyCost = useMemo(() => {
-    if (!listingData) return 0;
-    const base = Number(listingData.monthlyRent || 0);
-    const billsSum = (listingData.bills || []).reduce((acc, bill) => {
-      if (bill.isIncludedInRent) return acc;
-      return acc + Number(bill.amountKzt || 0);
-    }, 0);
-    return base + billsSum;
-  }, [listingData]);
+  const totalMonthly = useMemo(() => {
+    if (!listing) return 0;
+    const base = Number(listing.monthlyRent || 0);
+    const bills = (listing.bills || []).reduce(
+      (acc, b) =>
+        b.isIncludedInRent ? acc : acc + Number(b.amountKzt || 0),
+      0
+    );
+    return base + bills;
+  }, [listing]);
 
-  if (isLoading) {
+  if (isLoading) return <PageSpinner label="Загружаем объявление..." />;
+
+  if (!listing) {
     return (
-      <div className="flex flex-col gap-8 animate-pulse">
-        <div className="h-10 w-1/3 bg-muted rounded" />
-        <div className="h-[400px] w-full bg-muted rounded-2xl" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="md:col-span-2 space-y-4">
-            <div className="h-40 bg-muted rounded-xl" />
-            <div className="h-60 bg-muted rounded-xl" />
-          </div>
-          <div className="h-80 bg-muted rounded-xl" />
-        </div>
+      <div className="text-center py-24">
+        <h2 className="text-2xl font-bold mb-3">Объявление не найдено</h2>
+        <p className="text-muted-foreground mb-6">
+          Возможно оно было удалено или скрыто.
+        </p>
+        <Button onClick={() => navigate("/listings")}>
+          Вернуться к поиску
+        </Button>
       </div>
     );
   }
 
-  if (!listingData) {
-    return (
-      <div className="text-center py-20">
-        <h2 className="text-2xl font-bold mb-4">Объявление не найдено</h2>
-        <Link to="/listings">
-          <Button>Вернуться к поиску</Button>
-        </Link>
-      </div>
-    );
-  }
+  const photos = [
+    listing.photos?.[0] || FALLBACKS[0],
+    listing.photos?.[1] || FALLBACKS[1],
+    listing.photos?.[2] || FALLBACKS[2],
+    listing.photos?.[3] || FALLBACKS[3],
+    listing.photos?.[4] || FALLBACKS[4],
+  ];
+  const isFav = favoriteData?.isFavorite;
 
-  const item = listingData;
+  const share = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success("Ссылка скопирована");
+    } catch {
+      toast.info("Не удалось скопировать ссылку");
+    }
+  };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-20">
-      {/* Navigation & Header */}
-      <div className="flex flex-col gap-4">
-        <Link to="/listings" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors w-fit">
-          <ChevronLeft size={16} className="mr-1" />
-          Назад к списку
-        </Link>
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex flex-wrap gap-2 mb-2">
-              <Badge variant="secondary" className="px-3">{item.city}</Badge>
-              {item.district && <Badge variant="outline" className="px-3">{item.district}</Badge>}
-              <Badge variant="success" className="px-3">Активно</Badge>
-            </div>
-            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">{item.title}</h1>
-            <div className="flex items-center text-muted-foreground">
-              <MapPin size={18} className="mr-2 text-primary" />
-              <span>{item.address || "Адрес не указан"}, {item.city}</span>
-            </div>
+    <div className="max-w-6xl mx-auto">
+      <Link
+        to="/listings"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-5"
+      >
+        <ChevronLeft size={16} /> Назад к поиску
+      </Link>
+
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">
+            {listing.title}
+          </h1>
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+            <span className="inline-flex items-center gap-1 font-semibold text-foreground">
+              <Star size={14} className="fill-foreground" />
+              4.87 · 42 отзыва
+            </span>
+            <span className="hidden md:inline">·</span>
+            <span className="inline-flex items-center gap-1">
+              <MapPin size={14} />
+              {listing.district ? `${listing.district}, ` : ""}
+              {cityLabel(listing.city)}
+            </span>
+            {listing.host?.isIdVerified && (
+              <>
+                <span className="hidden md:inline">·</span>
+                <Badge variant="success">
+                  <ShieldCheck size={12} /> Проверено
+                </Badge>
+              </>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="icon" 
-              onClick={() => toggleFavoriteMutation.mutate()}
-              className={cn(favoriteData?.isFavorite && "text-red-500 bg-red-50 border-red-200")}
-            >
-              <Heart size={20} fill={favoriteData?.isFavorite ? "currentColor" : "none"} />
-            </Button>
-            <Button variant="outline" size="icon">
-              <Share2 size={20} />
-            </Button>
-          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={share}
+            className="h-10 px-3 rounded-full border inline-flex items-center gap-2 text-sm font-semibold hover:bg-muted"
+          >
+            <Share2 size={15} /> Поделиться
+          </button>
+          <button
+            onClick={() => toggleFavorite.mutate()}
+            className={cn(
+              "h-10 px-3 rounded-full border inline-flex items-center gap-2 text-sm font-semibold",
+              isFav
+                ? "text-primary border-primary/30 bg-primary/5"
+                : "hover:bg-muted"
+            )}
+          >
+            <Heart size={15} fill={isFav ? "currentColor" : "none"} />
+            {isFav ? "В избранном" : "Сохранить"}
+          </button>
         </div>
       </div>
 
-      {/* Image Gallery Placeholder */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 h-[300px] md:h-[500px]">
-        <div className="md:col-span-3 rounded-2xl overflow-hidden border relative group">
-          <img 
-            src={item.photos?.[0] || "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80"} 
-            alt="Main photo"
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+      {/* GALLERY */}
+      <div className="grid grid-cols-4 grid-rows-2 gap-2 rounded-2xl overflow-hidden h-[280px] md:h-[480px] mb-10">
+        <div className="col-span-4 md:col-span-2 row-span-2">
+          <img
+            src={photos[0]}
+            alt=""
+            className="w-full h-full object-cover hover:brightness-95 cursor-pointer"
           />
         </div>
-        <div className="hidden md:flex flex-col gap-4">
-          <div className="flex-1 rounded-2xl overflow-hidden border relative group">
-            <img 
-              src={item.photos?.[1] || "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&q=80"} 
-              alt="Secondary photo"
-              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+        {photos.slice(1, 5).map((p, i) => (
+          <div key={i} className="hidden md:block">
+            <img
+              src={p}
+              alt=""
+              className="w-full h-full object-cover hover:brightness-95 cursor-pointer"
             />
           </div>
-          <div className="flex-1 rounded-2xl overflow-hidden border relative group">
-            <img 
-              src={item.photos?.[2] || "https://images.unsplash.com/photo-1484154218962-a197022b5858?w=600&q=80"} 
-              alt="Third photo"
-              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-            />
-            <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-              Смотреть все фото
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card className="bg-muted/30 border-none">
-              <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-1">
-                <Home className="text-primary mb-1" size={20} />
-                <span className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Комнаты</span>
-                <span className="font-bold">{item.availableRooms} из {item.totalRooms}</span>
-              </CardContent>
-            </Card>
-            <Card className="bg-muted/30 border-none">
-              <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-1">
-                <Armchair className="text-primary mb-1" size={20} />
-                <span className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Мебель</span>
-                <span className="font-bold">{item.furnished ? "Есть" : "Нет"}</span>
-              </CardContent>
-            </Card>
-            <Card className="bg-muted/30 border-none">
-              <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-1">
-                <Wifi className="text-primary mb-1" size={20} />
-                <span className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Wi-Fi</span>
-                <span className="font-bold">{item.internetIncluded ? "Включен" : "Нет"}</span>
-              </CardContent>
-            </Card>
-            <Card className="bg-muted/30 border-none">
-              <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-1">
-                <Users className="text-primary mb-1" size={20} />
-                <span className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Максимум</span>
-                <span className="font-bold">{item.maxOccupants} чел.</span>
-              </CardContent>
-            </Card>
+      {/* GRID */}
+      <div className="grid lg:grid-cols-[1fr_380px] gap-12">
+        <div>
+          {/* host summary */}
+          <div className="pb-6 border-b">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">
+                  Комната, хост —{" "}
+                  {listing.host?.fullName?.split(" ")[0] || "хозяин"}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {listing.availableRooms} из {listing.totalRooms} комнат ·
+                  до {listing.maxOccupants} жильцов ·{" "}
+                  {listing.furnished ? "с мебелью" : "без мебели"}
+                </p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-foreground text-background flex items-center justify-center text-lg font-semibold">
+                {listing.host?.fullName?.[0]?.toUpperCase() || "H"}
+              </div>
+            </div>
           </div>
 
-          {/* Description */}
-          <section className="space-y-4">
-            <h3 className="text-2xl font-bold tracking-tight">Описание</h3>
-            <p className="text-lg text-muted-foreground leading-relaxed whitespace-pre-wrap">
-              {item.description}
+          {/* features */}
+          <div className="py-6 border-b space-y-5">
+            <Feature
+              icon={HomeIcon}
+              title={`${listing.totalRooms}-комнатная квартира`}
+              body={`Вам доступно ${listing.availableRooms} свободных комнат`}
+            />
+            <Feature
+              icon={Armchair}
+              title={listing.furnished ? "С мебелью" : "Без мебели"}
+              body={
+                listing.furnished
+                  ? "Всё необходимое уже на месте"
+                  : "Можно привезти свою"
+              }
+            />
+            <Feature
+              icon={Wifi}
+              title={listing.internetIncluded ? "Интернет включён" : "Без интернета"}
+              body={
+                listing.internetIncluded
+                  ? "Стоимость Wi-Fi уже в аренде"
+                  : "Оплачивается отдельно"
+              }
+            />
+            {listing.petsAllowed && (
+              <Feature
+                icon={PawPrint}
+                title="Можно с питомцем"
+                body="Хост одобряет домашних животных"
+              />
+            )}
+          </div>
+
+          {/* description */}
+          <section className="py-6 border-b">
+            <h3 className="text-xl font-semibold mb-3">Об этом жилье</h3>
+            <p className="text-foreground/80 whitespace-pre-wrap leading-relaxed">
+              {listing.description}
             </p>
           </section>
 
-          {/* Bills Grid */}
-          <section className="space-y-4">
-            <h3 className="text-2xl font-bold tracking-tight">Ежемесячные платежи</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {item.bills?.map((bill) => (
-                <div key={bill.id} className="flex items-center justify-between p-4 rounded-xl border bg-card">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-primary/10 p-2 rounded-lg text-primary">
-                      <CreditCard size={18} />
-                    </div>
+          {/* bills */}
+          {listing.bills?.length > 0 && (
+            <section className="py-6 border-b">
+              <h3 className="text-xl font-semibold mb-4">Ежемесячные платежи</h3>
+              <div className="divide-y rounded-2xl border">
+                {listing.bills.map((bill) => (
+                  <div
+                    key={bill.id}
+                    className="flex items-center justify-between p-4"
+                  >
                     <div>
-                      <div className="font-semibold">{bill.label}</div>
-                      <div className="text-xs text-muted-foreground">{bill.category}</div>
+                      <p className="font-medium">{bill.label}</p>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                        {bill.category}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold">
+                        {Number(bill.amountKzt).toLocaleString("ru-RU")} ₸
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {bill.isIncludedInRent
+                          ? "Включено в аренду"
+                          : "Оплачивается отдельно"}
+                      </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-bold">{Number(bill.amountKzt).toLocaleString("ru-RU")} ₸</div>
-                    <div className="text-[10px] uppercase font-bold text-muted-foreground">
-                      {bill.isIncludedInRent ? "Включено в аренду" : "Оплачивается отдельно"}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {(!item.bills || item.bills.length === 0) && (
-                <p className="text-muted-foreground italic md:col-span-2">Платежи не указаны</p>
-              )}
-            </div>
-          </section>
+                ))}
+              </div>
+            </section>
+          )}
 
-          {/* Rules */}
-          <section className="space-y-4">
-            <h3 className="text-2xl font-bold tracking-tight">Правила дома</h3>
-            <div className="bg-muted/20 rounded-2xl p-6 border border-dashed">
-              <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {item.houseRules?.map((rule) => (
-                  <li key={rule.id} className="flex items-start gap-3">
-                    <CheckCircle2 size={18} className="text-primary mt-1 shrink-0" />
-                    <span className="text-muted-foreground">{rule.ruleText}</span>
+          {/* house rules */}
+          {listing.houseRules?.length > 0 && (
+            <section className="py-6 border-b">
+              <h3 className="text-xl font-semibold mb-3">Правила дома</h3>
+              <ul className="grid sm:grid-cols-2 gap-3">
+                {listing.houseRules.map((rule) => (
+                  <li
+                    key={rule.id}
+                    className="flex items-start gap-2.5 text-sm"
+                  >
+                    <CheckCircle2
+                      size={18}
+                      className="text-foreground mt-0.5 shrink-0"
+                    />
+                    <span>{rule.ruleText}</span>
                   </li>
                 ))}
-                {(!item.houseRules || item.houseRules.length === 0) && (
-                  <li className="text-muted-foreground italic">Особых правил не указано</li>
-                )}
               </ul>
+            </section>
+          )}
+
+          {/* host card */}
+          <section className="py-8">
+            <h3 className="text-xl font-semibold mb-4">О хозяине</h3>
+            <div className="rounded-2xl border p-6">
+              <div className="flex items-start gap-5">
+                <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center text-xl font-semibold overflow-hidden border">
+                  {listing.host?.avatarUrl ? (
+                    <img
+                      src={listing.host.avatarUrl}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User size={24} />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-lg">
+                    {listing.host?.fullName}
+                  </p>
+                  <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <Calendar size={12} /> На Roomie с 2024 г.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Badge variant={listing.host?.isIdVerified ? "success" : "outline"}>
+                      <ShieldCheck size={12} />
+                      {listing.host?.isIdVerified
+                        ? "ID проверен"
+                        : "ID не проверен"}
+                    </Badge>
+                    <Badge variant={listing.host?.isPhoneVerified ? "success" : "outline"}>
+                      <ShieldCheck size={12} />
+                      {listing.host?.isPhoneVerified
+                        ? "Телефон проверен"
+                        : "Телефон не проверен"}
+                    </Badge>
+                  </div>
+                  {listing.host?.bio && (
+                    <p className="mt-4 text-sm text-foreground/80 italic">
+                      “{listing.host.bio}”
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="mt-5 flex gap-2">
+                <Button variant="outline" className="flex-1">
+                  <MessageCircle size={16} /> Написать
+                </Button>
+              </div>
             </div>
           </section>
         </div>
 
-        {/* Sidebar Sticky Actions */}
-        <aside className="space-y-6">
-          <div className="sticky top-24 space-y-6">
-            <Card className="shadow-2xl border-primary/20 overflow-hidden">
-              <div className="bg-primary px-6 py-4 text-primary-foreground">
-                <div className="text-sm font-medium opacity-80">Итого в месяц</div>
-                <div className="text-3xl font-bold">{totalMonthlyCost.toLocaleString("ru-RU")} ₸</div>
-              </div>
-              <CardContent className="p-6 space-y-6">
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Аренда</span>
-                    <span className="font-semibold">{Number(item.monthlyRent).toLocaleString("ru-RU")} ₸</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Доп. услуги</span>
-                    <span className="font-semibold">
-                      {(totalMonthlyCost - Number(item.monthlyRent)).toLocaleString("ru-RU")} ₸
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm pt-3 border-t">
-                    <span className="text-muted-foreground">Депозит</span>
-                    <span className="font-semibold text-amber-600">
-                      {item.deposit ? `${Number(item.deposit).toLocaleString("ru-RU")} ₸` : "Не требуется"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-4 pt-4">
-                  <h4 className="font-bold flex items-center gap-2">
-                    <Info size={16} className="text-primary" />
-                    Откликнуться
-                  </h4>
-                  <form onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!token) {
-                      toast.info("Войдите, чтобы отправить заявку");
-                      return;
-                    }
-                    applyMutation.mutate(applyMessage);
-                  }} className="space-y-4">
-                    <textarea 
-                      className="w-full min-h-[100px] p-3 rounded-xl border bg-muted/20 text-sm focus:ring-2 focus:ring-primary outline-none transition-all"
-                      placeholder="Расскажите немного о себе..."
-                      value={applyMessage}
-                      onChange={(e) => setApplyMessage(e.target.value)}
-                    />
-                    <Button 
-                      className="w-full font-bold h-12" 
-                      type="submit"
-                      loading={applyMutation.isLoading}
-                    >
-                      Отправить заявку
-                    </Button>
-                  </form>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Host Card */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">О хозяине</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xl overflow-hidden border">
-                    {item.host?.avatarUrl ? (
-                      <img src={item.host.avatarUrl} className="w-full h-full object-cover" />
-                    ) : (
-                      <User size={28} />
-                    )}
-                  </div>
-                  <div>
-                    <div className="font-bold text-lg leading-tight">{item.host?.fullName}</div>
-                    <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                      <Calendar size={12} />
-                      На Roomie с 2024 г.
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold border",
-                    item.host?.isIdVerified ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-muted text-muted-foreground border-border"
-                  )}>
-                    <ShieldCheck size={14} />
-                    {item.host?.isIdVerified ? "ID ПОДТВЕРЖДЕН" : "ID НЕ ПОДТВЕРЖДЕН"}
-                  </div>
-                  <div className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold border",
-                    item.host?.isPhoneVerified ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-muted text-muted-foreground border-border"
-                  )}>
-                    <ShieldCheck size={14} />
-                    {item.host?.isPhoneVerified ? "ТЕЛЕФОН ПОДТВЕРЖДЕН" : "ТЕЛЕФОН НЕ ПОДТВЕРЖДЕН"}
-                  </div>
-                </div>
-
-                {item.host?.bio && (
-                  <p className="text-sm text-muted-foreground italic border-t pt-4">
-                    "{item.host.bio}"
+        {/* STICKY APPLY */}
+        <aside>
+          <div className="lg:sticky lg:top-28">
+            <div className="rounded-2xl border shadow-card bg-card p-6">
+              <div className="flex items-end justify-between mb-5">
+                <div>
+                  <p className="text-3xl font-bold">
+                    {Number(listing.monthlyRent).toLocaleString("ru-RU")} ₸
                   </p>
+                  <p className="text-sm text-muted-foreground">в месяц</p>
+                </div>
+                <div className="flex items-center gap-1 text-sm">
+                  <Star size={14} className="fill-foreground" />
+                  <span className="font-semibold">4.87</span>
+                  <span className="text-muted-foreground">· 42</span>
+                </div>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!token) {
+                    toast.info("Войдите, чтобы отправить заявку");
+                    return;
+                  }
+                  applyMutation.mutate(message);
+                }}
+                className="space-y-3"
+              >
+                <Textarea
+                  placeholder="Расскажите хозяину немного о себе, когда планируете заселение..."
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  rows={4}
+                />
+                <Button
+                  type="submit"
+                  variant="gradient"
+                  className="w-full h-12 text-base"
+                  loading={applyMutation.isLoading}
+                >
+                  Отправить заявку
+                </Button>
+              </form>
+
+              <p className="mt-3 text-center text-xs text-muted-foreground">
+                Заявка ни к чему не обязывает
+              </p>
+
+              <div className="mt-6 pt-5 border-t space-y-2.5 text-sm">
+                <Row
+                  label={`${Number(listing.monthlyRent).toLocaleString("ru-RU")} ₸ × 1 мес.`}
+                  value={`${Number(listing.monthlyRent).toLocaleString("ru-RU")} ₸`}
+                />
+                <Row
+                  label="Коммунальные (не включ.)"
+                  value={`${(totalMonthly - Number(listing.monthlyRent)).toLocaleString("ru-RU")} ₸`}
+                />
+                {listing.deposit && (
+                  <Row
+                    label="Залог"
+                    value={`${Number(listing.deposit).toLocaleString("ru-RU")} ₸`}
+                    muted
+                  />
                 )}
-              </CardContent>
-            </Card>
+                <div className="flex justify-between pt-3 border-t font-semibold">
+                  <span>Итого в месяц</span>
+                  <span>{totalMonthly.toLocaleString("ru-RU")} ₸</span>
+                </div>
+              </div>
+            </div>
           </div>
         </aside>
       </div>
     </div>
+  );
+}
+
+function Feature({ icon: Icon, title, body }) {
+  return (
+    <div className="flex items-start gap-4">
+      <Icon size={24} className="text-foreground mt-0.5 shrink-0" />
+      <div>
+        <p className="font-semibold">{title}</p>
+        <p className="text-sm text-muted-foreground">{body}</p>
+      </div>
+    </div>
+  );
+}
+
+function Row({ label, value, muted }) {
+  return (
+    <div
+      className={cn(
+        "flex justify-between",
+        muted && "text-muted-foreground"
+      )}
+    >
+      <span>{label}</span>
+      <span>{value}</span>
+    </div>
+  );
+}
+
+function cityLabel(city) {
+  return (
+    { almaty: "Алматы", astana: "Астана", shymkent: "Шымкент" }[city] || city
   );
 }
