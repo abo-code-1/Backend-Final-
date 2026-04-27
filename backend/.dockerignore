@@ -1,0 +1,33 @@
+node_modules
+node_modules.bak
+coverage
+.git
+.gitignore
+.dockerignore
+docker-compose*.yml
+Dockerfile
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Tests are not shipped in the production image
+tests
+**/__tests__
+**/*.test.js
+
+# Logs / OS / editor
+*.log
+.DS_Store
+.vscode
+.idea
+.cache
+tmp
+
+# Local Prisma migrations cache (keep migrations/, just exclude shadow DB)
+prisma/migrations/.shadow
+
+# Claude / local metadata
+.claude
+.mcp.json

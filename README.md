@@ -66,9 +66,15 @@ docker-compose exec backend npm run prisma:seed
 
 ## Services
 
-- Frontend: [http://localhost:5173](http://localhost:5173)
-- Backend API: [http://localhost:5000/api](http://localhost:5000/api)
-- Health: [http://localhost:5000/api/health](http://localhost:5000/api/health)
+- Frontend (Vite dev): [http://localhost:5174](http://localhost:5174)
+- Backend API: [http://localhost:5050/api](http://localhost:5050/api)
+- Health: [http://localhost:5050/api/health](http://localhost:5050/api/health)
+- **Swagger UI**: [http://localhost:5050/api/docs](http://localhost:5050/api/docs)
+- OpenAPI JSON: [http://localhost:5050/api/openapi.json](http://localhost:5050/api/openapi.json)
+
+> Host port mappings live in `.env` (`BACKEND_PORT`, `FRONTEND_PORT`). The
+> defaults above avoid the macOS AirPlay conflict on `:5000` and the
+> common `:5173` conflict.
 
 ## Auth and Roles
 
@@ -105,10 +111,15 @@ Route guards on frontend:
 
 ### Auth
 
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `GET /api/auth/me`
-- `PATCH /api/auth/switch-role`
+- `POST /api/auth/register` — create account (rate-limited 5/min/IP)
+- `POST /api/auth/login` — exchange credentials for `accessToken` + `refreshToken` (rate-limited)
+- `POST /api/auth/refresh` — rotate refresh token, issue new pair
+- `POST /api/auth/logout` — revoke a refresh token
+- `GET /api/auth/me` — current authenticated user
+- `PATCH /api/auth/switch-role` — toggle between `seeker`/`host`
+
+Access tokens default to **15m**, refresh tokens to **7d**; each is signed with
+a separate secret. The full flow is documented and live-testable in Swagger UI.
 
 ### Listings (full CRUD)
 

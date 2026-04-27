@@ -1,7 +1,33 @@
 node_modules/
 node_modules.bak/
 dist/
+build/
+coverage/
+
+# Env / secrets — never commit anything but the example
 .env
-*.log
+.env.*
+!.env.example
+
+# Credentials / SSH keys
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+id_rsa*
+id_ed25519*
+.aws/
+
+# OS / editor
 .DS_Store
+.idea/
+.vscode/
+
+# Logs / tmp
+*.log
+.cache
+tmp
+
+# Stray legacy
 test.css

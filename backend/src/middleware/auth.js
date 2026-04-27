@@ -1,5 +1,8 @@
 import { prisma } from "../config/db.js";
-import { verifyToken } from "../utils/jwt.js";
+import { verifyAccessToken } from "../utils/jwt.js";
+
+const unauthorized = (res, code, message) =>
+  res.status(401).json({ error: { code, message } });
 
 export const requireAuth = async (req, res, next) => {
   const authHeader = req.headers.authorization || "";
@@ -8,11 +11,11 @@ export const requireAuth = async (req, res, next) => {
     : null;
 
   if (!token) {
-    return res.status(401).json({ message: "Authentication required" });
+    return unauthorized(res, "AUTH_REQUIRED", "Authentication required");
   }
 
   try {
-    const decoded = verifyToken(token);
+    const decoded = verifyAccessToken(token);
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       select: {
@@ -27,15 +30,17 @@ export const requireAuth = async (req, res, next) => {
     });
 
     if (!user) {
-      return res.status(401).json({ message: "Invalid token user" });
+      return unauthorized(res, "INVALID_TOKEN_USER", "Invalid token user");
     }
     if (user.isBanned) {
-      return res.status(403).json({ message: "User is banned" });
+      return res.status(403).json({
+        error: { code: "USER_BANNED", message: "User is banned" }
+      });
     }
 
     req.user = user;
     return next();
   } catch (_error) {
-    return res.status(401).json({ message: "Invalid or expired token" });
+    return unauthorized(res, "INVALID_TOKEN", "Invalid or expired token");
   }
 };

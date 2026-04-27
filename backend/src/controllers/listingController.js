@@ -72,7 +72,8 @@ export const getListings = asyncHandler(async (req, res) => {
     isApproved,
     sort = "newest",
     page = "1",
-    limit = "12"
+    limit = "12",
+    cursor
   } = req.query;
 
   const where = {
@@ -117,13 +118,36 @@ export const getListings = asyncHandler(async (req, res) => {
 
   const safePage = Math.max(intOrUndefined(page) || 1, 1);
   const safeLimit = Math.min(Math.max(intOrUndefined(limit) || 12, 1), 50);
-  const skip = (safePage - 1) * safeLimit;
 
+  // Cursor-based pagination: client passes the previous page's nextCursor.
+  // Stable order required, so we always tiebreak by id.
+  const cursorId = cursor ? intOrUndefined(cursor) : undefined;
+  if (cursorId !== undefined) {
+    const items = await prisma.listing.findMany({
+      where,
+      include: listingInclude,
+      orderBy: [orderBy, { id: "desc" }],
+      take: safeLimit + 1,
+      cursor: { id: cursorId },
+      skip: 1
+    });
+    const hasMore = items.length > safeLimit;
+    const page = hasMore ? items.slice(0, safeLimit) : items;
+    return res.json({
+      items: page,
+      pagination: {
+        limit: safeLimit,
+        nextCursor: hasMore ? page[page.length - 1].id : null
+      }
+    });
+  }
+
+  const skip = (safePage - 1) * safeLimit;
   const [items, total] = await Promise.all([
     prisma.listing.findMany({
       where,
       include: listingInclude,
-      orderBy,
+      orderBy: [orderBy, { id: "desc" }],
       skip,
       take: safeLimit
     }),
@@ -136,7 +160,8 @@ export const getListings = asyncHandler(async (req, res) => {
       page: safePage,
       limit: safeLimit,
       total,
-      totalPages: Math.ceil(total / safeLimit)
+      totalPages: Math.ceil(total / safeLimit),
+      nextCursor: items.length === safeLimit ? items[items.length - 1].id : null
     }
   });
 });

@@ -1,0 +1,231 @@
+name: CI / CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  BACKEND_IMAGE_NAME: roomie-kz-backend
+  FRONTEND_IMAGE_NAME: roomie-kz-frontend
+  NODE_VERSION: "20"
+  EC2_HOST: ${{ vars.EC2_HOST }}
+  EC2_PORT: "22"
+
+jobs:
+  test:
+    name: Lint & Test (backend)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: roomie_user
+          POSTGRES_PASSWORD: roomie_pass
+          POSTGRES_DB: roomie_kz
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U roomie_user -d roomie_kz"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://roomie_user:roomie_pass@localhost:5432/roomie_kz?schema=public
+      JWT_SECRET: ci_jwt_secret_must_be_at_least_32_characters_long_xx
+      JWT_REFRESH_SECRET: ci_refresh_secret_must_be_at_least_32_characters_long_xx
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npx prisma generate
+
+      - name: Push schema to test DB
+        working-directory: backend
+        run: npx prisma db push --skip-generate
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
+      - name: Lint
+        working-directory: backend
+        run: npm run lint
+
+      - name: Run jest suite (unit + integration + RBAC + atomicity)
+        working-directory: backend
+        run: npm test
+
+  build-and-push:
+    name: Build & Push images
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        include:
+          - image: roomie-kz-backend
+            context: ./backend
+          - image: roomie-kz-frontend
+            context: ./frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & push ${{ matrix.image }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          platforms: linux/amd64
+          # backend Dockerfile has a `runtime` target; frontend has a `runtime` target.
+          target: runtime
+          build-args: |
+            VITE_API_URL=/api
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}:latest
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}:buildcache,mode=max
+
+  deploy:
+    name: Deploy to EC2
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check EC2 SSH reachability
+        shell: bash
+        run: |
+          if [ -z "${EC2_HOST}" ]; then
+            echo "::error::EC2_HOST repository variable is not set."
+            exit 1
+          fi
+          echo "[deploy] checking ${EC2_HOST}:${EC2_PORT}"
+          if timeout 10 bash -c "echo > /dev/tcp/${EC2_HOST}/${EC2_PORT}" 2>/dev/null; then
+            echo "[deploy] SSH reachable"
+            exit 0
+          fi
+          echo "::error::Cannot reach ${EC2_HOST}:${EC2_PORT} from the GitHub runner."
+          echo "::error::Use the EC2 public DNS/IP and allow inbound TCP 22 from GitHub-hosted runners in the EC2 security group."
+          exit 1
+
+      - name: Ensure deploy directory exists
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ env.EC2_HOST }}
+          port: ${{ env.EC2_PORT }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: mkdir -p /opt/roomie-kz
+
+      - name: Copy compose file to EC2
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ env.EC2_HOST }}
+          port: ${{ env.EC2_PORT }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: docker-compose.prod.yml
+          target: /opt/roomie-kz/
+
+      - name: Deploy on EC2
+        uses: appleboy/ssh-action@v1
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          BACKEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE_NAME }}
+          FRONTEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_IMAGE_NAME }}
+          IMAGE_TAG: ${{ github.sha }}
+        with:
+          host: ${{ env.EC2_HOST }}
+          port: ${{ env.EC2_PORT }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 10m
+          envs: DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,BACKEND_IMAGE,FRONTEND_IMAGE,IMAGE_TAG
+          script: |
+            set -euo pipefail
+            cd /opt/roomie-kz
+
+            if [ ! -f .env ]; then
+              echo "FATAL: /opt/roomie-kz/.env not found on host. Create it before the first deploy."
+              exit 1
+            fi
+
+            # Forward workflow values; let them win over .env so a stale IMAGE_TAG=latest
+            # in .env can't clobber the SHA we just built.
+            WF_BACKEND_IMAGE="$BACKEND_IMAGE"
+            WF_FRONTEND_IMAGE="$FRONTEND_IMAGE"
+            WF_IMAGE_TAG="$IMAGE_TAG"
+            set -a
+            . ./.env
+            set +a
+            BACKEND_IMAGE="$WF_BACKEND_IMAGE"
+            FRONTEND_IMAGE="$WF_FRONTEND_IMAGE"
+            IMAGE_TAG="$WF_IMAGE_TAG"
+            export BACKEND_IMAGE FRONTEND_IMAGE IMAGE_TAG
+
+            echo "BACKEND_IMAGE=[$BACKEND_IMAGE] FRONTEND_IMAGE=[$FRONTEND_IMAGE] IMAGE_TAG=[$IMAGE_TAG]"
+            for v in BACKEND_IMAGE FRONTEND_IMAGE IMAGE_TAG; do
+              if [ -z "${!v:-}" ]; then
+                echo "FATAL: $v is empty; refusing to pull."
+                exit 1
+              fi
+            done
+
+            echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+
+            echo "[deploy] pulling images"
+            docker compose -f docker-compose.prod.yml pull
+
+            echo "[deploy] bringing stack up"
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            echo "[deploy] waiting for health"
+            for i in $(seq 1 30); do
+              if curl -fsS http://127.0.0.1/api/health > /dev/null 2>&1; then
+                echo "[deploy] healthy"
+                docker image prune -f
+                exit 0
+              fi
+              sleep 3
+            done
+
+            echo "[deploy] FAILED health check - recent logs:"
+            docker compose -f docker-compose.prod.yml logs --tail=80 backend
+            docker compose -f docker-compose.prod.yml logs --tail=40 frontend
+            exit 1

@@ -1,11 +1,21 @@
 import { Router } from "express";
-import { login, me, register, switchRole } from "../controllers/authController.js";
+import {
+  login,
+  logout,
+  me,
+  refresh,
+  register,
+  switchRole
+} from "../controllers/authController.js";
 import { requireAuth } from "../middleware/auth.js";
+import { authRateLimiter } from "../middleware/rateLimit.js";
 
 const authRouter = Router();
 
-authRouter.post("/register", register);
-authRouter.post("/login", login);
+authRouter.post("/register", authRateLimiter, register);
+authRouter.post("/login", authRateLimiter, login);
+authRouter.post("/refresh", refresh);
+authRouter.post("/logout", logout);
 authRouter.get("/me", requireAuth, me);
 authRouter.patch("/switch-role", requireAuth, switchRole);
 

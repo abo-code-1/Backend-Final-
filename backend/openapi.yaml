@@ -1,0 +1,445 @@
+openapi: 3.0.3
+info:
+  title: Roomie.kz API
+  version: 1.0.0
+  description: |
+    Backend API for Roomie.kz — a Kazakhstan-focused roommate / shared-room
+    platform. All non-public endpoints require a Bearer access token issued by
+    `/auth/login` or `/auth/register`. Refresh tokens may be exchanged via
+    `/auth/refresh`. Roles: `seeker`, `host`, `admin`.
+
+servers:
+  - url: http://localhost:5050/api
+    description: Local docker dev (host port via BACKEND_PORT)
+  - url: http://localhost:5000/api
+    description: Local default
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Auth
+  - name: Listings
+  - name: Applications
+  - name: Admin
+  - name: Health
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, example: VALIDATION_FAILED }
+            message: { type: string, example: Validation failed }
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  path: { type: string }
+                  message: { type: string }
+
+    User:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        email: { type: string, example: alice@example.com }
+        fullName: { type: string, example: Alice Nurlanovna }
+        phone: { type: string, nullable: true, example: "+77011234567" }
+        role: { type: string, enum: [seeker, host, admin] }
+        avatarUrl: { type: string, nullable: true }
+        bio: { type: string, nullable: true }
+        isPhoneVerified: { type: boolean }
+        isIdVerified: { type: boolean }
+        isBanned: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    RegisterInput:
+      type: object
+      required: [email, password, fullName]
+      properties:
+        email: { type: string, example: alice@example.com }
+        password:
+          type: string
+          description: 8+ chars; must include upper, lower, digit, symbol
+          example: Sup3rStr0ng!
+        fullName: { type: string, example: Alice N. }
+        phone: { type: string, example: "+77011234567" }
+        role: { type: string, enum: [seeker, host], example: seeker }
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, example: alice@example.com }
+        password: { type: string, example: Sup3rStr0ng! }
+
+    AuthTokens:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        token: { type: string, description: alias for accessToken }
+        user: { $ref: "#/components/schemas/User" }
+
+    RefreshInput:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string }
+
+    Listing:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        description: { type: string }
+        city: { type: string }
+        district: { type: string, nullable: true }
+        monthlyRent: { type: string, example: "200000.00" }
+        deposit: { type: string, nullable: true }
+        totalRooms: { type: integer }
+        availableRooms: { type: integer }
+        currentOccupants: { type: integer }
+        maxOccupants: { type: integer }
+        status: { type: string, enum: [draft, active, rented, archived] }
+        isApproved: { type: boolean }
+        photos: { type: array, items: { type: string } }
+        createdAt: { type: string, format: date-time }
+
+    ListingsPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Listing" }
+        pagination:
+          type: object
+          properties:
+            page: { type: integer, nullable: true }
+            limit: { type: integer }
+            total: { type: integer, nullable: true }
+            totalPages: { type: integer, nullable: true }
+            nextCursor: { type: integer, nullable: true }
+
+    Application:
+      type: object
+      properties:
+        id: { type: integer }
+        listingId: { type: integer }
+        seekerId: { type: integer }
+        message: { type: string, nullable: true }
+        status:
+          type: string
+          enum: [pending, accepted, rejected, withdrawn]
+        createdAt: { type: string, format: date-time }
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Unauthorized:
+      description: Unauthorized — missing or invalid access token
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Forbidden:
+      description: Forbidden — role not permitted
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    NotFound:
+      description: Not Found
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Conflict:
+      description: Conflict — duplicate or invalid state transition
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Unprocessable:
+      description: Validation failed
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    RateLimited:
+      description: Too many requests
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    ServerError:
+      description: Internal Server Error
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      security: []
+      summary: Liveness + DB ping
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              example: { status: ok, db: connected }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Create a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthTokens" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Exchange credentials for access + refresh tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthTokens" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Rotate refresh token, issue new access + refresh
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RefreshInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthTokens" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Revoke a refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RefreshInput" }
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              example: { message: Logged out }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get the current authenticated user
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /listings:
+    get:
+      tags: [Listings]
+      security: []
+      summary: List public listings (cursor or page paginated)
+      parameters:
+        - in: query
+          name: city
+          schema: { type: string }
+        - in: query
+          name: minPrice
+          schema: { type: number }
+        - in: query
+          name: maxPrice
+          schema: { type: number }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 12, maximum: 50 }
+        - in: query
+          name: cursor
+          description: id of the last item from the previous page (cursor pagination)
+          schema: { type: integer }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ListingsPage" }
+        "500": { $ref: "#/components/responses/ServerError" }
+    post:
+      tags: [Listings]
+      summary: Create a listing (host or admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              title: "Bright room near Almaty Mall"
+              description: "Sunny 14m² room in 3-bedroom flat..."
+              city: Almaty
+              district: Bostandyk
+              monthlyRent: 180000
+              deposit: 90000
+              totalRooms: 3
+              availableRooms: 1
+              maxOccupants: 3
+      responses:
+        "201":
+          description: Created
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+
+  /listings/{id}:
+    get:
+      tags: [Listings]
+      security: []
+      summary: Get a listing by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /listings/{listingId}/applications:
+    post:
+      tags: [Applications]
+      summary: Apply to a listing (seeker)
+      parameters:
+        - in: path
+          name: listingId
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example: { message: "Hi! I'm a 23 y.o. student, non-smoker." }
+      responses:
+        "201":
+          description: Application created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  item: { $ref: "#/components/schemas/Application" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /applications/me:
+    get:
+      tags: [Applications]
+      summary: List my applications
+      responses:
+        "200":
+          description: OK
+
+  /applications/{id}/accept:
+    patch:
+      tags: [Applications]
+      summary: |
+        Accept an application (host/admin). Atomic — wraps a SELECT FOR UPDATE
+        on the listing row and refuses if no rooms remain.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  item: { $ref: "#/components/schemas/Application" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: No rooms remain or application not pending
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /applications/{id}/reject:
+    patch:
+      tags: [Applications]
+      summary: Reject an application (host/admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200": { description: Rejected }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /applications/{id}/withdraw:
+    patch:
+      tags: [Applications]
+      summary: Withdraw my application (seeker or admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200": { description: Withdrawn }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
