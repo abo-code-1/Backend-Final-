@@ -18,9 +18,9 @@ import {
   Inbox,
   Shield,
   Mail,
-  Instagram,
-  Twitter,
-  Facebook,
+  Globe2,
+  Send,
+  MessageSquare,
   HelpCircle,
 } from "lucide-react";
 
@@ -252,13 +252,13 @@ function Footer() {
           </p>
           <div className="flex items-center gap-3 mt-4">
             <a href="#" aria-label="Instagram" className="text-muted-foreground hover:text-primary">
-              <Instagram size={18} />
+              <Globe2 size={18} />
             </a>
             <a href="#" aria-label="Twitter" className="text-muted-foreground hover:text-primary">
-              <Twitter size={18} />
+              <Send size={18} />
             </a>
             <a href="#" aria-label="Facebook" className="text-muted-foreground hover:text-primary">
-              <Facebook size={18} />
+              <MessageSquare size={18} />
             </a>
             <a href="mailto:support@roomie.kz" aria-label="Email" className="text-muted-foreground hover:text-primary">
               <Mail size={18} />

@@ -6,8 +6,8 @@ import {
   MapPin,
   MessageCircle,
   Send,
-  Instagram,
-  Twitter,
+  Globe2,
+  MessageSquare,
 } from "lucide-react";
 import Button from "../components/common/Button";
 import Input from "../components/common/Input";
@@ -121,8 +121,9 @@ export default function ContactPage() {
           <div className="rounded-2xl border p-6">
             <p className="font-semibold mb-3">Социальные сети</p>
             <div className="flex items-center gap-2">
-              <Social icon={Instagram} href="#" />
-              <Social icon={Twitter} href="#" />
+              <Social icon={Globe2} href="#" />
+              <Social icon={Send} href="#" />
+              <Social icon={MessageSquare} href="#" />
               <Social icon={MessageCircle} href="#" />
             </div>
           </div>

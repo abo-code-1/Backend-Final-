@@ -18,21 +18,74 @@ import AdminDashboardPage from "../pages/AdminDashboardPage";
 import AdminUsersPage from "../pages/AdminUsersPage";
 import AdminListingsPage from "../pages/AdminListingsPage";
 import AdminVerificationsPage from "../pages/AdminVerificationsPage";
+import AboutPage from "../pages/AboutPage";
+import BlogPage from "../pages/BlogPage";
+import ContactPage from "../pages/ContactPage";
+import HelpPage from "../pages/HelpPage";
+import HowItWorksPage from "../pages/HowItWorksPage";
+import MessagesPage from "../pages/MessagesPage";
+import NeighborhoodsPage from "../pages/NeighborhoodsPage";
+import SafetyPage from "../pages/SafetyPage";
 
 export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/about" element={<AboutPage />} />
+      <Route path="/blog" element={<BlogPage />} />
+      <Route path="/contact" element={<ContactPage />} />
+      <Route path="/faq" element={<HelpPage />} />
+      <Route path="/help" element={<HelpPage />} />
+      <Route path="/how-it-works" element={<HowItWorksPage />} />
       <Route path="/listings" element={<ListingsPage />} />
       <Route path="/listings/:id" element={<ListingDetailsPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/neighborhoods" element={<NeighborhoodsPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/safety" element={<SafetyPage />} />
       <Route path="/403" element={<ForbiddenPage />} />
+      <Route
+        path="/pricing"
+        element={
+          <PlaceholderPage
+            title="Цены и тарифы"
+            description="Раздел с тарифами и вариантами продвижения объявлений."
+          />
+        }
+      />
+      <Route
+        path="/privacy"
+        element={
+          <PlaceholderPage
+            title="Конфиденциальность"
+            description="Здесь будут правила обработки персональных данных."
+          />
+        }
+      />
+      <Route
+        path="/terms"
+        element={
+          <PlaceholderPage
+            title="Условия использования"
+            description="Здесь будут опубликованы правила использования платформы."
+          />
+        }
+      />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/favorites" element={<FavoritesPage />} />
         <Route path="/applications" element={<ApplicationsPage />} />
+        <Route path="/messages" element={<MessagesPage />} />
+        <Route
+          path="/settings"
+          element={
+            <PlaceholderPage
+              title="Настройки"
+              description="Управление аккаунтом, уведомлениями и параметрами безопасности."
+            />
+          }
+        />
       </Route>
 
       <Route element={<RoleRoute allowedRoles={["host", "admin"]} />}>
