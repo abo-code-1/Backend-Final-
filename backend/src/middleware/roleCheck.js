@@ -1,16 +1,17 @@
 export const requireRoles = (...allowedRoles) => (req, res, next) => {
   if (!req.user) {
+    const message = "Authentication required";
     return res.status(401).json({
-      error: { code: "AUTH_REQUIRED", message: "Authentication required" }
+      message,
+      error: { code: "AUTH_REQUIRED", message }
     });
   }
 
   if (!allowedRoles.includes(req.user.role)) {
+    const message = `Forbidden: requires one of [${allowedRoles.join(", ")}]`;
     return res.status(403).json({
-      error: {
-        code: "FORBIDDEN_ROLE",
-        message: `Forbidden: requires one of [${allowedRoles.join(", ")}]`
-      }
+      message,
+      error: { code: "FORBIDDEN_ROLE", message }
     });
   }
 

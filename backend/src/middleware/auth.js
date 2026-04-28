@@ -2,7 +2,7 @@ import { prisma } from "../config/db.js";
 import { verifyAccessToken } from "../utils/jwt.js";
 
 const unauthorized = (res, code, message) =>
-  res.status(401).json({ error: { code, message } });
+  res.status(401).json({ message, error: { code, message } });
 
 export const requireAuth = async (req, res, next) => {
   const authHeader = req.headers.authorization || "";
@@ -34,6 +34,7 @@ export const requireAuth = async (req, res, next) => {
     }
     if (user.isBanned) {
       return res.status(403).json({
+        message: "User is banned",
         error: { code: "USER_BANNED", message: "User is banned" }
       });
     }

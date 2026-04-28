@@ -9,67 +9,65 @@ export class HttpError extends Error {
   }
 }
 
+// All error responses include BOTH a structured `error` envelope AND a
+// top-level `message` (and `errors` for validation) for legacy clients that
+// read `response.data.message` directly (the existing frontend does this).
+const errorBody = (code, message, extra = {}) => ({
+  message,
+  error: { code, message, ...(extra.details ? { details: extra.details } : {}) },
+  ...(extra.details ? { errors: extra.details } : {})
+});
+
 export const notFoundHandler = (req, res) => {
-  res.status(404).json({
-    error: {
-      code: "NOT_FOUND",
-      message: `Path not found: ${req.originalUrl}`
-    }
-  });
+  res.status(404).json(
+    errorBody("NOT_FOUND", `Path not found: ${req.originalUrl}`)
+  );
 };
 
 export const errorHandler = (err, req, res, _next) => {
   if (err instanceof z.ZodError) {
     const issues = err.issues || err.errors || [];
-    return res.status(422).json({
-      error: {
-        code: "VALIDATION_FAILED",
-        message: "Validation failed",
-        details: issues.map((e) => ({
-          path: Array.isArray(e.path) ? e.path.join(".") : String(e.path),
-          message: e.message
-        }))
-      }
-    });
+    const details = issues.map((e) => ({
+      path: Array.isArray(e.path) ? e.path.join(".") : String(e.path),
+      message: e.message
+    }));
+    return res
+      .status(422)
+      .json(errorBody("VALIDATION_FAILED", "Validation failed", { details }));
   }
 
   if (err instanceof HttpError) {
-    return res.status(err.statusCode).json({
-      error: {
-        code: err.code,
-        message: err.message,
-        ...(err.details ? { details: err.details } : {})
-      }
-    });
+    return res
+      .status(err.statusCode)
+      .json(errorBody(err.code, err.message, { details: err.details }));
   }
 
   // Prisma known error codes
   if (err && err.code === "P2002") {
-    return res.status(409).json({
-      error: {
-        code: "UNIQUE_VIOLATION",
-        message: "Resource already exists",
-        details: err.meta || null
-      }
-    });
+    return res
+      .status(409)
+      .json(
+        errorBody("UNIQUE_VIOLATION", "Resource already exists", {
+          details: err.meta || null
+        })
+      );
   }
   if (err && err.code === "P2025") {
-    return res.status(404).json({
-      error: { code: "NOT_FOUND", message: err.meta?.cause || "Not found" }
-    });
+    return res
+      .status(404)
+      .json(errorBody("NOT_FOUND", err.meta?.cause || "Not found"));
   }
 
   // eslint-disable-next-line no-console
   console.error(err.stack || err);
 
   const statusCode = err.statusCode || 500;
-  return res.status(statusCode).json({
-    error: {
-      code: err.code || "INTERNAL_ERROR",
-      message: err.message || "Internal Server Error",
-      ...(process.env.NODE_ENV === "development" && err.stack
-        ? { stack: err.stack }
-        : {})
-    }
-  });
+  const body = errorBody(
+    err.code || "INTERNAL_ERROR",
+    err.message || "Internal Server Error"
+  );
+  if (process.env.NODE_ENV === "development" && err.stack) {
+    body.error.stack = err.stack;
+  }
+  return res.status(statusCode).json(body);
 };

@@ -6,11 +6,11 @@ export const authRateLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   skip: (req) => process.env.NODE_ENV === "test",
-  handler: (req, res) =>
+  handler: (req, res) => {
+    const message = "Too many auth attempts. Please retry in a minute.";
     res.status(429).json({
-      error: {
-        code: "RATE_LIMITED",
-        message: "Too many auth attempts. Please retry in a minute."
-      }
-    })
+      message,
+      error: { code: "RATE_LIMITED", message }
+    });
+  }
 });

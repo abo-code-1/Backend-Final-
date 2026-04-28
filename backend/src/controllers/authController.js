@@ -59,8 +59,10 @@ export const register = asyncHandler(async (req, res) => {
     where: { email: email.toLowerCase() }
   });
   if (existingUser) {
+    const message = "Email already registered";
     return res.status(409).json({
-      error: { code: "EMAIL_TAKEN", message: "Email already registered" }
+      message,
+      error: { code: "EMAIL_TAKEN", message }
     });
   }
 
@@ -96,18 +98,19 @@ export const login = asyncHandler(async (req, res) => {
   });
 
   if (!user || user.isBanned) {
+    const message = "Invalid credentials or account banned";
     return res.status(401).json({
-      error: {
-        code: "INVALID_CREDENTIALS",
-        message: "Invalid credentials or account banned"
-      }
+      message,
+      error: { code: "INVALID_CREDENTIALS", message }
     });
   }
 
   const isMatch = await bcrypt.compare(password, user.passwordHash);
   if (!isMatch) {
+    const message = "Invalid credentials";
     return res.status(401).json({
-      error: { code: "INVALID_CREDENTIALS", message: "Invalid credentials" }
+      message,
+      error: { code: "INVALID_CREDENTIALS", message }
     });
   }
 
@@ -134,24 +137,27 @@ export const refresh = asyncHandler(async (req, res) => {
   try {
     payload = verifyRefreshToken(refreshToken);
   } catch {
+    const message = "Invalid or expired refresh token";
     return res.status(401).json({
-      error: { code: "INVALID_REFRESH", message: "Invalid or expired refresh token" }
+      message,
+      error: { code: "INVALID_REFRESH", message }
     });
   }
 
   const tokenHash = hashRefreshToken(refreshToken);
   const stored = await prisma.refreshToken.findUnique({ where: { tokenHash } });
   if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
+    const message = "Refresh token revoked or expired";
     return res.status(401).json({
-      error: {
-        code: "REVOKED_REFRESH",
-        message: "Refresh token revoked or expired"
-      }
+      message,
+      error: { code: "REVOKED_REFRESH", message }
     });
   }
   if (stored.userId !== payload.userId) {
+    const message = "Refresh token mismatch";
     return res.status(401).json({
-      error: { code: "INVALID_REFRESH", message: "Refresh token mismatch" }
+      message,
+      error: { code: "INVALID_REFRESH", message }
     });
   }
 
@@ -160,8 +166,10 @@ export const refresh = asyncHandler(async (req, res) => {
     select: authUserSelect
   });
   if (!user || user.isBanned) {
+    const message = "User unavailable";
     return res.status(401).json({
-      error: { code: "USER_DISABLED", message: "User unavailable" }
+      message,
+      error: { code: "USER_DISABLED", message }
     });
   }
 
@@ -211,8 +219,10 @@ export const me = asyncHandler(async (req, res) => {
 export const switchRole = asyncHandler(async (req, res) => {
   const { role } = req.body;
   if (!["seeker", "host"].includes(role)) {
+    const message = "Role must be seeker or host";
     return res.status(400).json({
-      error: { code: "INVALID_ROLE", message: "Role must be seeker or host" }
+      message,
+      error: { code: "INVALID_ROLE", message }
     });
   }
 
