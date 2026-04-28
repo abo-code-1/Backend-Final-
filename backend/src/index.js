@@ -35,7 +35,9 @@ try {
   const openapiPath = path.resolve(__dirname, "..", "openapi.yaml");
   const spec = YAML.load(openapiPath);
   app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(spec));
+  app.use("/swagger/docs", swaggerUi.serve, swaggerUi.setup(spec));
   app.get("/api/openapi.json", (_req, res) => res.json(spec));
+  app.get("/swagger/openapi.json", (_req, res) => res.json(spec));
 } catch (e) {
   // eslint-disable-next-line no-console
   console.warn("[openapi] Failed to load spec:", e.message);
