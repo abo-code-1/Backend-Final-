@@ -14,7 +14,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 app.disable("x-powered-by");
-app.use(helmet());
+// CSP off: this is a JSON API plus a Swagger UI bundle that needs
+// `unsafe-eval` and inline styles. nginx adds frame/content sniffing headers
+// in front; helmet still ships the rest of its security headers.
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(
   cors({
     origin: (origin, cb) => {
