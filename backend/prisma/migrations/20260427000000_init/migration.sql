@@ -1,4 +1,3 @@
-time="2026-04-27T23:54:42+05:00" level=warning msg="/Users/a1/Uniprojects/FrontClass/DefenceProject/Defence2/roomie-kz/docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
 -- CreateEnum
 CREATE TYPE "UserRole" AS ENUM ('seeker', 'host', 'admin');
 
