@@ -82,3 +82,40 @@
   inventory-transfer requirement in shape (row-level lock + invariant check).
 - Local dev keeps page-based pagination on `/api/listings` for backwards-compat
   with the existing frontend; cursor pagination is additive (`?cursor=…`).
+
+### Contract compliance notes
+The following intentional deviations from a strict blueprint contract are
+captured here so reviewers don't flag them as bugs.
+
+- **Dual-shape error envelope.** Every error response carries both a top-level
+  `message` and the structured `error: { code, message, details? }`. Validation
+  errors additionally duplicate `details` as a top-level `errors` array. Reason:
+  the existing frontend (and several integration tests) read
+  `response.data.message` directly; switching to `error.message` only would
+  break those clients. Both shapes are documented in the OpenAPI `Error` schema.
+- **`token` alias on auth responses.** `AuthTokens` includes `accessToken`,
+  `refreshToken`, and a `token` field that aliases `accessToken`. The alias is
+  retained for legacy clients (Redux store, mobile preview) that already read
+  `response.data.token`. New clients should prefer `accessToken`.
+- **Idempotent POSTs.** Both `POST /favorites` and
+  `POST /listings/{listingId}/applications` are upserts:
+  - Favoriting an already-favorited listing returns 201 with the existing row
+    (no 409). Reason: heart-button UX should never error.
+  - Applying to a listing the user already applied to resets the existing
+    application's `message` and `status` back to `pending` and returns 201.
+    Reason: lets a withdrawn applicant re-apply without an admin reset.
+- **`POST /auth/logout` is idempotent.** Returns 200 even for unknown,
+  expired, or already-revoked refresh tokens. Reason: avoids leaking a
+  token-existence oracle and keeps client-side logout flows trivial.
+- **Public listings filter defaults.** `GET /listings` injects
+  `status=active` and `isApproved=true` unless the caller explicitly overrides
+  via query params. Documented in the spec under the corresponding parameters.
+- **Listing decimals as strings.** `monthlyRent`, `deposit`, and `amountKzt`
+  are returned as JSON strings (e.g., `"180000.00"`) because Prisma serializes
+  `Decimal` that way. The OpenAPI schema reflects this; frontends parse with
+  `Number()` at the edge.
+- **Standardized error coverage.** Every operation in `openapi.yaml` enumerates
+  the relevant subset of `400 / 401 / 403 / 404 / 409 / 422 / 500` (plus `429`
+  on the rate-limited auth endpoints). The spec does *not* list status codes
+  the endpoint cannot produce (e.g., `GET /health` lists only 200/500) so
+  documented codes stay actionable.
