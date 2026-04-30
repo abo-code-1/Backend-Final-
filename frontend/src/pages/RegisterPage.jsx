@@ -22,7 +22,14 @@ import { cn } from "../utils/cn";
 const schema = z.object({
   fullName: z.string().min(2, "Введите полное имя"),
   email: z.string().email("Введите корректный email"),
-  password: z.string().min(6, "Пароль должен быть не менее 6 символов"),
+  password: z
+    .string()
+    .min(8, "Пароль должен быть не менее 8 символов")
+    .max(128, "Пароль слишком длинный")
+    .refine((v) => /[a-z]/.test(v), "Пароль должен содержать строчную букву")
+    .refine((v) => /[A-Z]/.test(v), "Пароль должен содержать заглавную букву")
+    .refine((v) => /[0-9]/.test(v), "Пароль должен содержать цифру")
+    .refine((v) => /[^A-Za-z0-9]/.test(v), "Пароль должен содержать символ"),
   phone: z.string().optional(),
   role: z.enum(["seeker", "host"], { required_error: "Выберите роль" }),
 });
@@ -159,7 +166,7 @@ export default function RegisterPage() {
                 type="password"
                 placeholder="••••••••"
                 className="pl-10"
-                hint="Минимум 6 символов"
+                hint="8+ символов: строчная, заглавная, цифра, символ"
                 error={errors.password?.message}
                 {...register("password")}
               />

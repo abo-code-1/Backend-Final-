@@ -81,6 +81,54 @@ describe("POST /api/auth/login", () => {
   });
 });
 
+describe("GET /api/auth/me", () => {
+  it("returns the current user when access token is valid", async () => {
+    const reg = await request(app)
+      .post("/api/auth/register")
+      .send(validRegister);
+
+    const res = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${reg.body.accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.email).toBe(validRegister.email);
+    expect(res.body.user).not.toHaveProperty("passwordHash");
+  });
+});
+
+describe("PATCH /api/auth/switch-role", () => {
+  it("flips seeker -> host and returns a fresh access token bound to the new role", async () => {
+    const reg = await request(app)
+      .post("/api/auth/register")
+      .send(validRegister);
+
+    const res = await request(app)
+      .patch("/api/auth/switch-role")
+      .set("Authorization", `Bearer ${reg.body.accessToken}`)
+      .send({ role: "host" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.role).toBe("host");
+    expect(res.body.accessToken).toEqual(expect.any(String));
+    expect(res.body.accessToken).not.toBe(reg.body.accessToken);
+  });
+
+  it("rejects invalid roles with 400", async () => {
+    const reg = await request(app)
+      .post("/api/auth/register")
+      .send(validRegister);
+
+    const res = await request(app)
+      .patch("/api/auth/switch-role")
+      .set("Authorization", `Bearer ${reg.body.accessToken}`)
+      .send({ role: "admin" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("INVALID_ROLE");
+  });
+});
+
 describe("Refresh + Logout", () => {
   let tokens;
   beforeEach(async () => {

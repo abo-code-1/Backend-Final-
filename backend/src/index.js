@@ -34,10 +34,25 @@ app.use(express.json({ limit: "1mb" }));
 try {
   const openapiPath = path.resolve(__dirname, "..", "openapi.yaml");
   const spec = YAML.load(openapiPath);
-  app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(spec));
-  app.use("/swagger/docs", swaggerUi.serve, swaggerUi.setup(spec));
+  const swaggerSetup = swaggerUi.setup(spec, {
+    customSiteTitle: "Roomie.kz API Docs",
+    swaggerOptions: {
+      persistAuthorization: true,
+      docExpansion: "list",
+      defaultModelsExpandDepth: 1,
+      filter: true,
+      tryItOutEnabled: true,
+      tagsSorter: "alpha",
+      operationsSorter: "method"
+    }
+  });
+  app.use("/api/docs", swaggerUi.serve, swaggerSetup);
+  app.use("/swagger/docs", swaggerUi.serve, swaggerSetup);
   app.get("/api/openapi.json", (_req, res) => res.json(spec));
   app.get("/swagger/openapi.json", (_req, res) => res.json(spec));
+  app.get("/api/openapi.yaml", (_req, res) => {
+    res.type("text/yaml").sendFile(openapiPath);
+  });
 } catch (e) {
   // eslint-disable-next-line no-console
   console.warn("[openapi] Failed to load spec:", e.message);
