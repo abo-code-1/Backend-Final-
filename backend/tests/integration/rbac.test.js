@@ -16,6 +16,12 @@ afterAll(async () => {
   await closeDb();
 });
 
+let phoneCounter = 0;
+const nextPhone = () => {
+  phoneCounter += 1;
+  return `+7700${String(phoneCounter).padStart(7, "0")}`;
+};
+
 const registerUser = (overrides = {}) =>
   request(app)
     .post("/api/auth/register")
@@ -24,6 +30,7 @@ const registerUser = (overrides = {}) =>
       password: "Sup3rStr0ng!",
       fullName: "Alice N.",
       role: "seeker",
+      phone: nextPhone(),
       ...overrides
     });
 

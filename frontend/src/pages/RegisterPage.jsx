@@ -30,7 +30,12 @@ const schema = z.object({
     .refine((v) => /[A-Z]/.test(v), "Пароль должен содержать заглавную букву")
     .refine((v) => /[0-9]/.test(v), "Пароль должен содержать цифру")
     .refine((v) => /[^A-Za-z0-9]/.test(v), "Пароль должен содержать символ"),
-  phone: z.string().optional(),
+  phone: z
+    .string()
+    .regex(
+      /^\+[1-9]\d{7,14}$/,
+      "Введите номер в формате +77001234567"
+    ),
   role: z.enum(["seeker", "host"], { required_error: "Выберите роль" }),
 });
 
@@ -53,7 +58,7 @@ export default function RegisterPage() {
 
   const onSubmit = async (data) => {
     const result = await dispatch(registerThunk(data));
-    if (registerThunk.fulfilled.match(result)) navigate("/");
+    if (registerThunk.fulfilled.match(result)) navigate("/verify-phone");
   };
 
   return (
@@ -148,8 +153,9 @@ export default function RegisterPage() {
                 />
                 <Input
                   label="Телефон"
-                  placeholder="+7 777 ..."
+                  placeholder="+77001234567"
                   className="pl-10"
+                  hint="В формате E.164, нужен для SMS-подтверждения"
                   error={errors.phone?.message}
                   {...register("phone")}
                 />

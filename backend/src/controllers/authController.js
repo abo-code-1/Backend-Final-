@@ -11,8 +11,14 @@ import {
 import {
   loginSchema,
   refreshSchema,
-  registerSchema
+  registerSchema,
+  verifyOtpSchema
 } from "../validators/zodSchemas.js";
+import {
+  checkOtp,
+  isTwilioConfigured,
+  sendOtp
+} from "../services/twilioService.js";
 
 const authUserSelect = {
   id: true,
@@ -66,6 +72,15 @@ export const register = asyncHandler(async (req, res) => {
     });
   }
 
+  const existingPhone = await prisma.user.findUnique({ where: { phone } });
+  if (existingPhone) {
+    const message = "Phone already registered";
+    return res.status(409).json({
+      message,
+      error: { code: "PHONE_TAKEN", message }
+    });
+  }
+
   const hashedPassword = await bcrypt.hash(password, 12);
   const user = await prisma.user.create({
     data: {
@@ -80,12 +95,31 @@ export const register = asyncHandler(async (req, res) => {
 
   const { accessToken, refreshToken } = await issueTokensForUser(user);
 
+  // Best-effort: kick off SMS OTP send. Failures should not block registration —
+  // the client can call /auth/phone/send-otp to retry.
+  let otpDispatched = false;
+  let otpError = null;
+  try {
+    await sendOtp(phone);
+    otpDispatched = true;
+  } catch (e) {
+    otpError = e?.message || "Failed to send OTP";
+    // eslint-disable-next-line no-console
+    console.error("[twilio] sendOtp on register failed:", otpError);
+  }
+
   return res.status(201).json({
     message: "Registered successfully",
     accessToken,
     refreshToken,
     token: accessToken,
-    user
+    user,
+    phoneVerification: {
+      required: true,
+      dispatched: otpDispatched,
+      mock: !isTwilioConfigured(),
+      error: otpError
+    }
   });
 });
 
@@ -214,6 +248,100 @@ export const me = asyncHandler(async (req, res) => {
   });
 
   return res.json({ user });
+});
+
+export const sendPhoneOtp = asyncHandler(async (req, res) => {
+  const user = await prisma.user.findUnique({
+    where: { id: req.user.id },
+    select: { id: true, phone: true, isPhoneVerified: true }
+  });
+
+  if (!user?.phone) {
+    const message = "No phone number on file";
+    return res.status(400).json({
+      message,
+      error: { code: "NO_PHONE", message }
+    });
+  }
+  if (user.isPhoneVerified) {
+    return res.json({
+      message: "Phone already verified",
+      alreadyVerified: true
+    });
+  }
+
+  try {
+    const result = await sendOtp(user.phone);
+    return res.json({
+      message: "OTP sent",
+      status: result.status,
+      mock: result.mock || false
+    });
+  } catch (e) {
+    const message = e?.message || "Failed to send OTP";
+    return res.status(502).json({
+      message,
+      error: { code: "OTP_SEND_FAILED", message }
+    });
+  }
+});
+
+export const verifyPhoneOtp = asyncHandler(async (req, res) => {
+  const { code } = verifyOtpSchema.parse(req.body);
+
+  const user = await prisma.user.findUnique({
+    where: { id: req.user.id },
+    select: { id: true, phone: true, isPhoneVerified: true }
+  });
+
+  if (!user?.phone) {
+    const message = "No phone number on file";
+    return res.status(400).json({
+      message,
+      error: { code: "NO_PHONE", message }
+    });
+  }
+  if (user.isPhoneVerified) {
+    const updated = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: authUserSelect
+    });
+    return res.json({
+      message: "Phone already verified",
+      alreadyVerified: true,
+      user: updated
+    });
+  }
+
+  let result;
+  try {
+    result = await checkOtp(user.phone, code);
+  } catch (e) {
+    const message = e?.message || "Failed to check OTP";
+    return res.status(502).json({
+      message,
+      error: { code: "OTP_CHECK_FAILED", message }
+    });
+  }
+
+  if (result.status !== "approved") {
+    const message = "Invalid or expired code";
+    return res.status(400).json({
+      message,
+      error: { code: "INVALID_OTP", message }
+    });
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: user.id },
+    data: { isPhoneVerified: true },
+    select: authUserSelect
+  });
+
+  return res.json({
+    message: "Phone verified successfully",
+    user: updated
+  });
 });
 
 export const switchRole = asyncHandler(async (req, res) => {

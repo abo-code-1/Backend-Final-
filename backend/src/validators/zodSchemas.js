@@ -12,12 +12,23 @@ export const passwordSchema = z
     "Password must contain a symbol"
   );
 
+export const phoneSchema = z
+  .string()
+  .regex(
+    /^\+[1-9]\d{7,14}$/,
+    "Phone must be in E.164 format, e.g. +77001234567"
+  );
+
 export const registerSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: passwordSchema,
   fullName: z.string().min(2, "Full name is too short"),
-  phone: z.string().optional(),
+  phone: phoneSchema,
   role: z.enum(["seeker", "host"]).optional()
+});
+
+export const verifyOtpSchema = z.object({
+  code: z.string().regex(/^\d{4,8}$/, "Code must be 4-8 digits")
 });
 
 export const loginSchema = z.object({
