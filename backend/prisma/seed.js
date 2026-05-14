@@ -3,44 +3,414 @@ import bcrypt from "bcryptjs";
 import prismaPkg from "@prisma/client";
 
 const { PrismaClient } = prismaPkg;
-
 const prisma = new PrismaClient();
 
-const cities = ["almaty", "astana", "shymkent"];
+// Shared demo password for every seeded account.
+const DEMO_PASSWORD = "Roomie123!";
 
-const makeListing = (hostId, index) => ({
-  hostId,
-  title: `Комната для соседа #${index + 1}`,
-  description:
-    "Светлая квартира, дружелюбные соседи, удобная локация и понятные правила проживания.",
-  city: cities[index % cities.length],
-  district: index % 2 === 0 ? "bostandyk" : "yesil",
-  address: `Улица ${index + 10}, дом ${index + 1}`,
-  monthlyRent: 120000 + index * 15000,
-  deposit: 50000 + index * 5000,
-  totalRooms: 3 + (index % 2),
-  availableRooms: 1 + (index % 2),
-  currentOccupants: 1 + (index % 2),
-  maxOccupants: 3 + (index % 2),
-  petsAllowed: index % 2 === 0,
-  smokingAllowed: index % 3 === 0 ? "outside" : "no",
-  genderPreference: index % 3 === 0 ? "any" : index % 2 === 0 ? "female" : "male",
-  minAge: 20,
-  maxAge: 35,
-  furnished: true,
-  internetIncluded: true,
-  minStayMonths: 3,
-  photos: [
-    `https://images.unsplash.com/photo-1484154218962-a197022b5858?sig=${index + 1}`,
-    `https://images.unsplash.com/photo-1493666438817-866a91353ca9?sig=${index + 1}`
-  ],
-  status: "active",
-  isApproved: index % 4 !== 0
-});
+// Real Unsplash interior photos — stable IDs, served directly.
+const PHOTO = (id) =>
+  `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=1000&q=80`;
+const ROOM_PHOTOS = [
+  "1522708323590-d24dbb6b0267",
+  "1567767292278-a4f21aa2d36e",
+  "1502672260266-1c1ef2d93688",
+  "1505691938895-1758d7feb511",
+  "1493809842364-78817add7ffb",
+  "1560448204-e02f11c3d0e2",
+  "1522771739844-6a9f6d5f14af",
+  "1484154218962-a197022b5858",
+  "1493666438817-866a91353ca9",
+  "1556909114-f6e7ad7d3136",
+  "1554995207-c18c203602cb",
+  "1598928506311-c55ded91a20c"
+].map(PHOTO);
+
+const HOSTS = [
+  {
+    email: "nurlan.abenov@gmail.com",
+    fullName: "Нұрлан Әбенов",
+    phone: "+77017012233",
+    occupation: "Инженер-строитель",
+    bio: "Сдаю комнату в своей квартире. Ищу спокойного и опрятного соседа, сам работаю допоздна.",
+    isIdVerified: true
+  },
+  {
+    email: "aigerim.satbayeva@mail.ru",
+    fullName: "Айгерим Сәтбаева",
+    phone: "+77019945571",
+    occupation: "Преподаватель английского",
+    bio: "Живу одна в трёхкомнатной, сдаю две комнаты. Предпочитаю соседей-девушек, некурящих.",
+    isIdVerified: true
+  },
+  {
+    email: "daniyar.tursynov@gmail.com",
+    fullName: "Данияр Тұрсынов",
+    phone: "+77781120044",
+    occupation: "Владелец кофейни",
+    bio: "Несколько квартир под аренду в центре. Отвечаю быстро, помогаю с заселением.",
+    isIdVerified: true
+  },
+  {
+    email: "zhanna.kassymova@gmail.com",
+    fullName: "Жанна Қасымова",
+    phone: "+77073388190",
+    occupation: "Бухгалтер",
+    bio: "Сдаю комнату в новостройке. Чистота и тишина — для меня это важно.",
+    isIdVerified: false
+  }
+];
+
+const SEEKERS = [
+  {
+    email: "aruzhan.bekova@gmail.com",
+    fullName: "Аружан Бекова",
+    phone: "+77015567001",
+    occupation: "Студентка КИМЭП",
+    bio: "Ищу комнату рядом с университетом. Спокойная, не курю, по выходным уезжаю к родителям."
+  },
+  {
+    email: "timur.aliyev@gmail.com",
+    fullName: "Тимур Әлиев",
+    phone: "+77019912340",
+    occupation: "Frontend-разработчик",
+    bio: "Работаю из дома, нужен тихий район и стабильный интернет. Аккуратный, без вредных привычек."
+  },
+  {
+    email: "madina.zhumabayeva@mail.ru",
+    fullName: "Мадина Жұмабаева",
+    phone: "+77781190555",
+    occupation: "Медсестра",
+    bio: "Работаю посменно, ищу понимающих соседей. Люблю порядок и домашние растения."
+  },
+  {
+    email: "alikhan.serik@gmail.com",
+    fullName: "Әлихан Серік",
+    phone: "+77073301288",
+    occupation: "Магистрант Назарбаев Университета",
+    bio: "Переехал в Астану на учёбу. Ищу комнату на длительный срок, желательно с мебелью."
+  },
+  {
+    email: "dana.ospanova@gmail.com",
+    fullName: "Дана Оспанова",
+    phone: "+77017788123",
+    occupation: "Графический дизайнер",
+    bio: "Фрилансер, ценю уютную атмосферу. Не курю, есть кот — ищу квартиру, где можно с питомцем."
+  },
+  {
+    email: "sanzhar.kuanysh@gmail.com",
+    fullName: "Санжар Қуаныш",
+    phone: "+77784456709",
+    occupation: "Маркетолог",
+    bio: "Активный, общительный, но уважаю личное пространство соседей. Ищу жильё ближе к центру."
+  },
+  {
+    email: "kamila.nurlanova@mail.ru",
+    fullName: "Камила Нұрланова",
+    phone: "+77015590876",
+    occupation: "Студентка медицинского",
+    bio: "Учусь на третьем курсе, ищу комнату для девушки в спокойной квартире недалеко от учёбы."
+  }
+];
+
+// hostIndex points into HOSTS; city must be a lowercase code (almaty/astana/shymkent).
+const LISTINGS = [
+  {
+    hostIndex: 0,
+    title: "Уютная комната в ЖК «Армандастар», Медеуский район",
+    description:
+      "Светлая комната 16 м² в трёхкомнатной квартире. Рядом парк Ботанический сад, остановка в двух минутах. В квартире живёт один человек, сосед нужен спокойный и аккуратный. Кухня и санузел в общем пользовании, вся техника есть.",
+    city: "almaty",
+    district: "Медеуский",
+    address: "мкр. Самал-2, дом 33",
+    monthlyRent: 145000,
+    deposit: 145000,
+    totalRooms: 3,
+    availableRooms: 1,
+    currentOccupants: 1,
+    maxOccupants: 2,
+    petsAllowed: false,
+    smokingAllowed: "no",
+    genderPreference: "any",
+    minAge: 21,
+    maxAge: 40,
+    furnished: true,
+    internetIncluded: true,
+    minStayMonths: 6,
+    photoCount: 3
+  },
+  {
+    hostIndex: 0,
+    title: "Комната рядом с метро Алмалы, для парня",
+    description:
+      "Сдаётся комната в двухкомнатной квартире в Алмалинском районе. До метро 5 минут пешком, рядом магазины и спортзал. Ищу соседа-парня, работающего или studента. Тихие соседи сверху, двор закрытый.",
+    city: "almaty",
+    district: "Алмалинский",
+    address: "ул. Айтеке би, дом 145",
+    monthlyRent: 110000,
+    deposit: 90000,
+    totalRooms: 2,
+    availableRooms: 1,
+    currentOccupants: 1,
+    maxOccupants: 2,
+    petsAllowed: false,
+    smokingAllowed: "outside",
+    genderPreference: "male",
+    minAge: 20,
+    maxAge: 35,
+    furnished: true,
+    internetIncluded: true,
+    minStayMonths: 3,
+    photoCount: 2
+  },
+  {
+    hostIndex: 1,
+    title: "Просторная комната для девушки, Бостандыкский район",
+    description:
+      "Комната 18 м² в чистой ухоженной квартире. Хозяйка живёт здесь же, сдаёт вторую комнату. Только для девушек, некурящих. Полностью меблировано: кровать, шкаф, рабочий стол. Рядом ТРЦ MEGA и парк.",
+    city: "almaty",
+    district: "Бостандыкский",
+    address: "мкр. Орбита-3, дом 12",
+    monthlyRent: 135000,
+    deposit: 135000,
+    totalRooms: 3,
+    availableRooms: 1,
+    currentOccupants: 1,
+    maxOccupants: 2,
+    petsAllowed: false,
+    smokingAllowed: "no",
+    genderPreference: "female",
+    minAge: 19,
+    maxAge: 30,
+    furnished: true,
+    internetIncluded: true,
+    minStayMonths: 6,
+    photoCount: 3
+  },
+  {
+    hostIndex: 1,
+    title: "Вторая комната в светлой квартире у парка",
+    description:
+      "Ещё одна комната в той же квартире — 14 м², окна во двор. Подойдёт студентке или молодому специалисту. Спокойный подъезд, консьерж, во дворе детская площадка. Заселение возможно сразу.",
+    city: "almaty",
+    district: "Бостандыкский",
+    address: "мкр. Орбита-3, дом 12",
+    monthlyRent: 120000,
+    deposit: 100000,
+    totalRooms: 3,
+    availableRooms: 1,
+    currentOccupants: 2,
+    maxOccupants: 3,
+    petsAllowed: false,
+    smokingAllowed: "no",
+    genderPreference: "female",
+    minAge: 19,
+    maxAge: 30,
+    furnished: true,
+    internetIncluded: true,
+    minStayMonths: 4,
+    photoCount: 2
+  },
+  {
+    hostIndex: 2,
+    title: "Комната в центре, рядом Арбат и Панфилова",
+    description:
+      "Историческое сердце города. Комната в большой сталинке с высокими потолками. Идеально для тех, кто любит гулять пешком — кафе, театры, парки в шаговой доступности. Сосед — дружелюбный, работает в кофейне.",
+    city: "almaty",
+    district: "Алмалинский",
+    address: "ул. Гоголя, дом 58",
+    monthlyRent: 160000,
+    deposit: 160000,
+    totalRooms: 2,
+    availableRooms: 1,
+    currentOccupants: 1,
+    maxOccupants: 2,
+    petsAllowed: true,
+    smokingAllowed: "outside",
+    genderPreference: "any",
+    minAge: 22,
+    maxAge: 45,
+    furnished: true,
+    internetIncluded: true,
+    minStayMonths: 3,
+    photoCount: 3
+  },
+  {
+    hostIndex: 2,
+    title: "Бюджетная комната в Ауэзовском районе",
+    description:
+      "Недорогой вариант для студента. Комната 12 м² в обычной квартире, без излишеств, но всё чистое и рабочее. Рядом автобусные маршруты до всех вузов города. Коммунальные делим пополам.",
+    city: "almaty",
+    district: "Ауэзовский",
+    address: "мкр. Аксай-2, дом 70",
+    monthlyRent: 85000,
+    deposit: 70000,
+    totalRooms: 2,
+    availableRooms: 1,
+    currentOccupants: 1,
+    maxOccupants: 2,
+    petsAllowed: false,
+    smokingAllowed: "outside",
+    genderPreference: "male",
+    minAge: 18,
+    maxAge: 28,
+    furnished: false,
+    internetIncluded: false,
+    minStayMonths: 2,
+    photoCount: 2
+  },
+  {
+    hostIndex: 3,
+    title: "Комната в новостройке, ЖК «Highvill», Есильский район",
+    description:
+      "Новая квартира в Астане, левый берег. Современный ремонт, тёплые полы, панорамные окна. Сдаётся одна комната — ищу соседку, которая ценит чистоту и тишину. Рядом набережная и Байтерек.",
+    city: "astana",
+    district: "Есильский",
+    address: "ул. Сыганак, дом 25",
+    monthlyRent: 130000,
+    deposit: 130000,
+    totalRooms: 2,
+    availableRooms: 1,
+    currentOccupants: 1,
+    maxOccupants: 2,
+    petsAllowed: false,
+    smokingAllowed: "no",
+    genderPreference: "female",
+    minAge: 21,
+    maxAge: 35,
+    furnished: true,
+    internetIncluded: true,
+    minStayMonths: 6,
+    photoCount: 3
+  },
+  {
+    hostIndex: 3,
+    title: "Тёплая комната, Сарыаркинский район, для студента",
+    description:
+      "Астана, правый берег. Комната в обжитой квартире недалеко от ЕНУ. Хорошее отопление, что для Астаны важно зимой. Сосед — магистрант, спокойный. Можно заехать с началом учебного года.",
+    city: "astana",
+    district: "Сарыаркинский",
+    address: "ул. Жұмабаева, дом 19",
+    monthlyRent: 95000,
+    deposit: 80000,
+    totalRooms: 2,
+    availableRooms: 1,
+    currentOccupants: 1,
+    maxOccupants: 2,
+    petsAllowed: false,
+    smokingAllowed: "outside",
+    genderPreference: "male",
+    minAge: 18,
+    maxAge: 30,
+    furnished: true,
+    internetIncluded: true,
+    minStayMonths: 5,
+    photoCount: 2
+  },
+  {
+    hostIndex: 0,
+    title: "Комната в Жетысуском районе, можно с питомцем",
+    description:
+      "Редкий вариант — хозяева не против кошки или небольшой собаки. Комната 15 м², квартира на втором этаже, во дворе есть где погулять с питомцем. Соседи любят животных, сами держат кота.",
+    city: "almaty",
+    district: "Жетысуский",
+    address: "ул. Емцова, дом 8",
+    monthlyRent: 105000,
+    deposit: 90000,
+    totalRooms: 3,
+    availableRooms: 1,
+    currentOccupants: 2,
+    maxOccupants: 3,
+    petsAllowed: true,
+    smokingAllowed: "outside",
+    genderPreference: "any",
+    minAge: 20,
+    maxAge: 40,
+    furnished: true,
+    internetIncluded: true,
+    minStayMonths: 3,
+    photoCount: 2
+  },
+  {
+    hostIndex: 1,
+    title: "Светлая комната в Шымкенте, Аль-Фарабийский район",
+    description:
+      "Тёплый климат, недорогая аренда. Комната в хорошей квартире рядом с центральным парком. Подойдёт молодому специалисту или паре студентов. Хозяйка показывает квартиру в любое удобное время.",
+    city: "shymkent",
+    district: "Аль-Фарабийский",
+    address: "ул. Тауке хана, дом 41",
+    monthlyRent: 75000,
+    deposit: 60000,
+    totalRooms: 2,
+    availableRooms: 1,
+    currentOccupants: 1,
+    maxOccupants: 2,
+    petsAllowed: false,
+    smokingAllowed: "outside",
+    genderPreference: "any",
+    minAge: 19,
+    maxAge: 35,
+    furnished: true,
+    internetIncluded: true,
+    minStayMonths: 3,
+    photoCount: 2
+  },
+  {
+    hostIndex: 2,
+    title: "Комната с балконом, Наурызбайский район",
+    description:
+      "Новый микрорайон на окраине Алматы — чистый воздух, вид на горы. Комната с застеклённым балконом. Дорога в центр около 30 минут на машине. Идеально для тех, кто работает удалённо.",
+    city: "almaty",
+    district: "Наурызбайский",
+    address: "мкр. Шугыла, дом 340",
+    monthlyRent: 100000,
+    deposit: 100000,
+    totalRooms: 3,
+    availableRooms: 2,
+    currentOccupants: 1,
+    maxOccupants: 3,
+    petsAllowed: false,
+    smokingAllowed: "no",
+    genderPreference: "any",
+    minAge: 21,
+    maxAge: 40,
+    furnished: true,
+    internetIncluded: true,
+    minStayMonths: 4,
+    photoCount: 3
+  },
+  {
+    hostIndex: 3,
+    title: "Комната в Алматинском районе Астаны, недорого",
+    description:
+      "Спокойный жилой район, развитая инфраструктура. Комната сдаётся без мебели — можно обставить под себя, цена за это снижена. Хороший вариант на длительный срок для работающего человека.",
+    city: "astana",
+    district: "Алматинский",
+    address: "ул. Майлина, дом 14",
+    monthlyRent: 80000,
+    deposit: 80000,
+    totalRooms: 2,
+    availableRooms: 1,
+    currentOccupants: 1,
+    maxOccupants: 2,
+    petsAllowed: false,
+    smokingAllowed: "outside",
+    genderPreference: "any",
+    minAge: 20,
+    maxAge: 45,
+    furnished: false,
+    internetIncluded: false,
+    minStayMonths: 6,
+    photoCount: 2
+  }
+];
+
+const pick = (arr, i) => arr[i % arr.length];
 
 async function main() {
-  const passwordHash = await bcrypt.hash("Roomie123!", 10);
+  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
 
+  // Clear in FK-safe order.
   await prisma.review.deleteMany();
   await prisma.application.deleteMany();
   await prisma.favorite.deleteMany();
@@ -56,75 +426,113 @@ async function main() {
     data: {
       email: "admin@roomie.kz",
       passwordHash,
-      fullName: "Roomie Admin",
+      fullName: "Администратор Roomie.kz",
       phone: "+77010000000",
       role: "admin",
+      occupation: "Модератор платформы",
       isPhoneVerified: true,
       isIdVerified: true
     }
   });
 
-  const hosts = await Promise.all(
-    Array.from({ length: 3 }).map((_, index) =>
-      prisma.user.create({
+  const hosts = [];
+  for (const h of HOSTS) {
+    hosts.push(
+      await prisma.user.create({
         data: {
-          email: `host${index + 1}@roomie.kz`,
+          email: h.email,
           passwordHash,
-          fullName: `Host ${index + 1}`,
-          phone: `+7701000000${index + 1}`,
+          fullName: h.fullName,
+          phone: h.phone,
           role: "host",
-          bio: "Ищу аккуратного и уважительного соседа.",
-          occupation: "Product Manager",
+          occupation: h.occupation,
+          bio: h.bio,
           isPhoneVerified: true,
-          isIdVerified: index !== 2
+          isIdVerified: h.isIdVerified
         }
       })
-    )
-  );
+    );
+  }
 
-  const seekers = await Promise.all(
-    Array.from({ length: 5 }).map((_, index) =>
-      prisma.user.create({
+  const seekers = [];
+  for (let i = 0; i < SEEKERS.length; i += 1) {
+    const s = SEEKERS[i];
+    seekers.push(
+      await prisma.user.create({
         data: {
-          email: `seeker${index + 1}@roomie.kz`,
+          email: s.email,
           passwordHash,
-          fullName: `Seeker ${index + 1}`,
-          phone: `+7702000000${index + 1}`,
+          fullName: s.fullName,
+          phone: s.phone,
           role: "seeker",
-          bio: "Ищу комнату в спокойной и дружелюбной квартире.",
-          occupation: "Developer",
-          isPhoneVerified: index % 2 === 0,
-          isIdVerified: index % 3 === 0
+          occupation: s.occupation,
+          bio: s.bio,
+          isPhoneVerified: i % 4 !== 0,
+          isIdVerified: i % 3 === 0
         }
       })
-    )
-  );
+    );
+  }
 
+  // Lifestyle profiles — varied but plausible.
+  const sleep = ["early_bird", "night_owl", "flexible"];
+  const guests = ["rare", "sometimes", "often"];
+  const diets = ["any", "vegetarian", "halal", "any"];
   const allUsers = [admin, ...hosts, ...seekers];
-  await Promise.all(
-    allUsers.map((user, index) =>
-      prisma.lifestyleProfile.create({
-        data: {
-          userId: user.id,
-          sleepSchedule: index % 2 === 0 ? "early_bird" : "night_owl",
-          cleanliness: 3 + (index % 3),
-          smoking: index % 3 === 0 ? "outside" : "no",
-          petsOk: index % 2 === 0,
-          guestsFrequency: index % 3 === 0 ? "rare" : "sometimes",
-          noiseTolerance: 2 + (index % 3),
-          diet: index % 2 === 0 ? "halal" : "any",
-          hasPets: index % 4 === 0,
-          workFromHome: index % 2 === 0
-        }
-      })
-    )
-  );
+  for (let i = 0; i < allUsers.length; i += 1) {
+    await prisma.lifestyleProfile.create({
+      data: {
+        userId: allUsers[i].id,
+        sleepSchedule: pick(sleep, i),
+        cleanliness: 3 + (i % 3),
+        smoking: i % 4 === 0 ? "outside" : "no",
+        petsOk: i % 2 === 0,
+        guestsFrequency: pick(guests, i),
+        noiseTolerance: 2 + (i % 4),
+        diet: pick(diets, i),
+        hasPets: i % 5 === 0,
+        workFromHome: i % 3 === 0
+      }
+    });
+  }
 
+  // Listings with bills + house rules.
   const listings = [];
-  for (let i = 0; i < 8; i += 1) {
-    const host = hosts[i % hosts.length];
+  for (let i = 0; i < LISTINGS.length; i += 1) {
+    const def = LISTINGS[i];
+    const host = hosts[def.hostIndex];
+    const photos = Array.from(
+      { length: def.photoCount },
+      (_, k) => ROOM_PHOTOS[(i * 3 + k) % ROOM_PHOTOS.length]
+    );
+
     const listing = await prisma.listing.create({
-      data: makeListing(host.id, i)
+      data: {
+        hostId: host.id,
+        title: def.title,
+        description: def.description,
+        city: def.city,
+        district: def.district,
+        address: def.address,
+        monthlyRent: def.monthlyRent,
+        deposit: def.deposit,
+        totalRooms: def.totalRooms,
+        availableRooms: def.availableRooms,
+        currentOccupants: def.currentOccupants,
+        maxOccupants: def.maxOccupants,
+        petsAllowed: def.petsAllowed,
+        smokingAllowed: def.smokingAllowed,
+        genderPreference: def.genderPreference,
+        minAge: def.minAge,
+        maxAge: def.maxAge,
+        furnished: def.furnished,
+        internetIncluded: def.internetIncluded,
+        minStayMonths: def.minStayMonths,
+        photos,
+        status: "active",
+        // One listing left pending moderation so the admin queue isn't empty.
+        isApproved: i !== LISTINGS.length - 1
+      }
     });
     listings.push(listing);
 
@@ -133,23 +541,24 @@ async function main() {
         {
           listingId: listing.id,
           category: "rent",
-          label: "Базовая аренда",
-          amountKzt: listing.monthlyRent,
+          label: "Аренда комнаты",
+          amountKzt: def.monthlyRent,
           isIncludedInRent: true
         },
         {
           listingId: listing.id,
           category: "utilities",
-          label: "Коммунальные",
-          amountKzt: 18000 + i * 1000,
-          isIncludedInRent: false
+          label: "Коммунальные услуги",
+          amountKzt: 15000 + (i % 4) * 3000,
+          isIncludedInRent: false,
+          notes: "Делится поровну между жильцами"
         },
         {
           listingId: listing.id,
           category: "internet",
-          label: "Интернет",
-          amountKzt: 6000,
-          isIncludedInRent: i % 2 === 0
+          label: "Интернет и ТВ",
+          amountKzt: 7000,
+          isIncludedInRent: def.internetIncluded
         }
       ]
     });
@@ -157,84 +566,207 @@ async function main() {
     await prisma.houseRule.createMany({
       data: [
         { listingId: listing.id, ruleText: "Тишина после 23:00", orderIndex: 0 },
-        { listingId: listing.id, ruleText: "Уборка по графику", orderIndex: 1 },
-        { listingId: listing.id, ruleText: "Без вечеринок", orderIndex: 2 }
+        {
+          listingId: listing.id,
+          ruleText: def.petsAllowed
+            ? "Питомцы разрешены по согласованию"
+            : "Без домашних животных",
+          orderIndex: 1
+        },
+        {
+          listingId: listing.id,
+          ruleText:
+            def.smokingAllowed === "no"
+              ? "Курение в квартире запрещено"
+              : "Курение только на балконе или улице",
+          orderIndex: 2
+        },
+        {
+          listingId: listing.id,
+          ruleText: "Уборка общих зон по очереди",
+          orderIndex: 3
+        }
       ]
     });
   }
 
-  await Promise.all(
-    seekers.slice(0, 4).map((seeker, index) =>
-      prisma.application.create({
-        data: {
-          listingId: listings[index].id,
-          seekerId: seeker.id,
-          message: "Здравствуйте! Я аккуратный и спокойный, готов заселиться в ближайший месяц.",
-          status: index === 0 ? "accepted" : index === 1 ? "rejected" : "pending"
-        }
-      })
-    )
-  );
+  // Applications — a realistic spread of statuses across several listings.
+  const applicationPlan = [
+    {
+      seeker: 0,
+      listing: 2,
+      status: "pending",
+      message:
+        "Здравствуйте! Я студентка КИМЭП, ищу комнату для девушки. Очень аккуратная, не курю. Могу заехать с начала месяца."
+    },
+    {
+      seeker: 1,
+      listing: 4,
+      status: "accepted",
+      message:
+        "Добрый день! Работаю из дома, мне важен тихий район и хороший интернет. Готов внести депозит сразу."
+    },
+    {
+      seeker: 2,
+      listing: 6,
+      status: "pending",
+      message:
+        "Здравствуйте! Работаю медсестрой посменно, веду спокойный образ жизни. Можно посмотреть квартиру на выходных?"
+    },
+    {
+      seeker: 3,
+      listing: 7,
+      status: "pending",
+      message:
+        "Салеметсіз бе! Магистрант НУ, ищу жильё на учебный год рядом с ЕНУ. Очень заинтересован."
+    },
+    {
+      seeker: 4,
+      listing: 8,
+      status: "accepted",
+      message:
+        "Здравствуйте! У меня спокойный кот, увидела, что с питомцем можно. Работаю дизайнером удалённо."
+    },
+    {
+      seeker: 5,
+      listing: 4,
+      status: "rejected",
+      message:
+        "Добрый день, интересует комната. Часто бываю в разъездах, дома почти не бываю."
+    },
+    {
+      seeker: 6,
+      listing: 0,
+      status: "pending",
+      message:
+        "Здравствуйте! Студентка медицинского, ищу спокойную квартиру недалеко от учёбы. Не курю."
+    },
+    {
+      seeker: 0,
+      listing: 10,
+      status: "withdrawn",
+      message:
+        "Добрый день! Рассматриваю варианты, но пока не определилась с районом."
+    }
+  ];
+  for (const a of applicationPlan) {
+    await prisma.application.create({
+      data: {
+        listingId: listings[a.listing].id,
+        seekerId: seekers[a.seeker].id,
+        message: a.message,
+        status: a.status
+      }
+    });
+  }
 
-  await Promise.all(
-    seekers.slice(0, 3).map((seeker, index) =>
-      prisma.favorite.create({
-        data: {
-          userId: seeker.id,
-          listingId: listings[index + 2].id
-        }
-      })
-    )
-  );
+  // Favorites — seekers bookmarking listings they like.
+  const favoritePlan = [
+    [0, 0],
+    [0, 6],
+    [1, 1],
+    [1, 4],
+    [2, 2],
+    [3, 7],
+    [4, 8],
+    [6, 3]
+  ];
+  for (const [s, l] of favoritePlan) {
+    await prisma.favorite.create({
+      data: { userId: seekers[s].id, listingId: listings[l].id }
+    });
+  }
 
-  await Promise.all(
-    seekers.slice(0, 2).map((seeker, index) =>
-      prisma.review.create({
-        data: {
-          reviewerId: seeker.id,
-          revieweeId: hosts[index].id,
-          rating: 4 + (index % 2),
-          comment: "Позитивный опыт совместного проживания."
-        }
-      })
-    )
-  );
+  // Reviews — seekers who lived with a host leaving feedback.
+  await prisma.review.create({
+    data: {
+      reviewerId: seekers[1].id,
+      revieweeId: hosts[1].id,
+      rating: 5,
+      comment:
+        "Прожил полгода — хозяйка очень порядочная, квартира всегда чистая. Рекомендую."
+    }
+  });
+  await prisma.review.create({
+    data: {
+      reviewerId: seekers[4].id,
+      revieweeId: hosts[0].id,
+      rating: 4,
+      comment:
+        "Хорошие условия, спокойные соседи. Единственное — интернет иногда подвисал."
+    }
+  });
+  await prisma.review.create({
+    data: {
+      reviewerId: seekers[3].id,
+      revieweeId: hosts[3].id,
+      rating: 5,
+      comment: "Тёплая квартира, всё как на фото. Заселение прошло без проблем."
+    }
+  });
 
-  await Promise.all(
-    seekers.slice(0, 3).map((seeker, index) =>
-      prisma.savedSearch.create({
-        data: {
-          userId: seeker.id,
-          name: `Поиск ${index + 1}`,
-          filterJson: {
-            city: cities[index % cities.length],
-            minPrice: 100000,
-            maxPrice: 220000,
-            furnished: "true"
-          }
-        }
-      })
-    )
-  );
+  // Saved searches.
+  const searchPlan = [
+    {
+      seeker: 0,
+      name: "Комната для девушки в Алматы",
+      filter: { city: "almaty", maxPrice: 140000, genderPreference: "female" }
+    },
+    {
+      seeker: 1,
+      name: "Тихие квартиры с интернетом",
+      filter: { city: "almaty", internetIncluded: "true", maxPrice: 170000 }
+    },
+    {
+      seeker: 3,
+      name: "Жильё в Астане у ЕНУ",
+      filter: { city: "astana", maxPrice: 110000, furnished: "true" }
+    }
+  ];
+  for (const s of searchPlan) {
+    await prisma.savedSearch.create({
+      data: {
+        userId: seekers[s.seeker].id,
+        name: s.name,
+        filterJson: s.filter
+      }
+    });
+  }
 
-  await Promise.all(
-    seekers.slice(0, 3).map((seeker, index) =>
-      prisma.idVerification.create({
-        data: {
-          userId: seeker.id,
-          imageUrl: `https://example.com/id-${seeker.id}.jpg`,
-          status: index === 0 ? "approved" : "pending"
-        }
-      })
-    )
-  );
+  // ID verifications — a couple approved, one still pending in the admin queue.
+  await prisma.idVerification.create({
+    data: {
+      userId: seekers[0].id,
+      imageUrl: "https://example.com/uploads/id-aruzhan-bekova.jpg",
+      status: "approved",
+      adminNote: "Документ читаемый, данные совпадают."
+    }
+  });
+  await prisma.idVerification.create({
+    data: {
+      userId: seekers[3].id,
+      imageUrl: "https://example.com/uploads/id-alikhan-serik.jpg",
+      status: "approved"
+    }
+  });
+  await prisma.idVerification.create({
+    data: {
+      userId: seekers[2].id,
+      imageUrl: "https://example.com/uploads/id-madina-zhumabayeva.jpg",
+      status: "pending"
+    }
+  });
 
   console.log("Seed completed:");
-  console.log("- 1 admin");
-  console.log("- 3 hosts");
-  console.log("- 5 seekers");
-  console.log("- 8 listings (with bills and house rules)");
-  console.log("- applications, favorites, reviews, saved searches, id verifications");
+  console.log(`- 1 admin, ${hosts.length} hosts, ${seekers.length} seekers`);
+  console.log(`- ${listings.length} active listings with bills + house rules`);
+  console.log(
+    `- ${applicationPlan.length} applications, ${favoritePlan.length} favorites, 3 reviews, ${searchPlan.length} saved searches, 3 ID verifications`
+  );
+  console.log(`\nAll accounts use password: ${DEMO_PASSWORD}`);
+  console.log("Admin login: admin@roomie.kz");
+  console.log(`Sample host:   ${HOSTS[0].email}`);
+  console.log(`Sample seeker: ${SEEKERS[0].email}`);
 }
 
 main()
