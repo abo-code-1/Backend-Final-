@@ -70,11 +70,18 @@ export default function ProfilePage() {
               label="Мои заявки"
             />
             {(role === "host" || role === "admin") && (
-              <ProfileNavLink
-                to="/my-listings"
-                icon={HomeIcon}
-                label="Мои объявления"
-              />
+              <>
+                <ProfileNavLink
+                  to="/my-listings"
+                  icon={HomeIcon}
+                  label="Мои объявления"
+                />
+                <ProfileNavLink
+                  to="/applications/received"
+                  icon={Inbox}
+                  label="Входящие заявки"
+                />
+              </>
             )}
           </nav>
         </aside>

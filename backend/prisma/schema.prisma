@@ -77,7 +77,7 @@ model User {
   email            String   @unique
   passwordHash     String   @map("password_hash")
   fullName         String   @map("full_name")
-  phone            String?  @unique
+  phone            String?
   role             UserRole @default(seeker)
   avatarUrl        String?  @map("avatar_url")
   bio              String?

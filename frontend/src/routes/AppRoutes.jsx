@@ -14,6 +14,7 @@ import NotFoundPage from "../pages/NotFoundPage";
 import MyListingsPage from "../pages/MyListingsPage";
 import ListingFormPage from "../pages/ListingFormPage";
 import ListingApplicantsPage from "../pages/ListingApplicantsPage";
+import ReceivedApplicationsPage from "../pages/ReceivedApplicationsPage";
 import FavoritesPage from "../pages/FavoritesPage";
 import ApplicationsPage from "../pages/ApplicationsPage";
 import AdminDashboardPage from "../pages/AdminDashboardPage";
@@ -69,6 +70,10 @@ export default function AppRoutes() {
         <Route
           path="/listings/:id/applicants"
           element={<ListingApplicantsPage />}
+        />
+        <Route
+          path="/applications/received"
+          element={<ReceivedApplicationsPage />}
         />
       </Route>
 

@@ -143,6 +143,11 @@ function UserMenu() {
                 <>
                   <MenuLink to="/listings/new" icon={Plus} label="Разместить жилье" bold />
                   <MenuLink to="/my-listings" icon={HomeIcon} label="Мои объявления" />
+                  <MenuLink
+                    to="/applications/received"
+                    icon={Inbox}
+                    label="Входящие заявки"
+                  />
                 </>
               )}
               {role === "admin" && (
@@ -197,7 +202,10 @@ function Header() {
           <HeaderLink to="/neighborhoods" label="Районы" />
           <HeaderLink to="/how-it-works" label="Как это работает" />
           {(role === "host" || role === "admin") && (
-            <HeaderLink to="/my-listings" label="Мои объявления" />
+            <>
+              <HeaderLink to="/my-listings" label="Мои объявления" />
+              <HeaderLink to="/applications/received" label="Входящие заявки" />
+            </>
           )}
         </nav>
 

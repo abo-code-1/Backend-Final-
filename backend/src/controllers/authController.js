@@ -75,15 +75,6 @@ export const register = asyncHandler(async (req, res) => {
     });
   }
 
-  const existingPhone = await prisma.user.findUnique({ where: { phone } });
-  if (existingPhone) {
-    const message = "Phone already registered";
-    return res.status(409).json({
-      message,
-      error: { code: "PHONE_TAKEN", message }
-    });
-  }
-
   const hashedPassword = await bcrypt.hash(password, 12);
   const user = await prisma.user.create({
     data: {

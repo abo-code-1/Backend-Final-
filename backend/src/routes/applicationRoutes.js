@@ -4,6 +4,7 @@ import {
   createApplication,
   getListingApplications,
   getMyApplications,
+  getReceivedApplications,
   rejectApplication,
   withdrawApplication
 } from "../controllers/applicationController.js";
@@ -19,6 +20,12 @@ applicationRouter.post(
   createApplication
 );
 applicationRouter.get("/applications/me", requireAuth, getMyApplications);
+applicationRouter.get(
+  "/applications/received",
+  requireAuth,
+  requireRoles("host", "admin"),
+  getReceivedApplications
+);
 applicationRouter.get(
   "/listings/:listingId/applications",
   requireAuth,

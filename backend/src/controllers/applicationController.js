@@ -108,6 +108,44 @@ export const getMyApplications = asyncHandler(async (req, res) => {
   return res.json({ items });
 });
 
+// Unified host inbox: every application across all of the caller's listings.
+// Admins see applications for every listing.
+export const getReceivedApplications = asyncHandler(async (req, res) => {
+  const where =
+    req.user.role === "admin"
+      ? {}
+      : { listing: { hostId: req.user.id } };
+
+  const items = await prisma.application.findMany({
+    where,
+    include: {
+      listing: {
+        select: {
+          id: true,
+          title: true,
+          city: true,
+          district: true,
+          monthlyRent: true
+        }
+      },
+      seeker: {
+        select: {
+          id: true,
+          fullName: true,
+          avatarUrl: true,
+          occupation: true,
+          gender: true,
+          isPhoneVerified: true,
+          isIdVerified: true
+        }
+      }
+    },
+    orderBy: { createdAt: "desc" }
+  });
+
+  return res.json({ items });
+});
+
 /**
  * Atomically accepts an application:
  *   - SELECT FOR UPDATE on the listing row (row-level lock)

@@ -1765,6 +1765,30 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/ServerError'
+  /applications/received:
+    get:
+      tags:
+        - Applications
+      summary: 'List applications received across my listings (host or admin)'
+      description: "Unified host inbox — every application submitted to any listing the\ncaller owns, newest first, each with the listing and applicant summary.\nAdmins receive applications for **all** listings.\n"
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApplicationWithSeeker'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
   '/applications/{id}/accept':
     patch:
       tags:
