@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "../config/db.js";
 import { env } from "../config/env.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { HttpError } from "../middleware/errorHandler.js";
 import {
   hashRefreshToken,
   signAccessToken,
@@ -9,9 +10,11 @@ import {
   verifyRefreshToken
 } from "../utils/jwt.js";
 import {
+  changePasswordSchema,
   loginSchema,
   refreshSchema,
   registerSchema,
+  updateProfileSchema,
   verifyOtpSchema
 } from "../validators/zodSchemas.js";
 import {
@@ -248,6 +251,63 @@ export const me = asyncHandler(async (req, res) => {
   });
 
   return res.json({ user });
+});
+
+export const updateProfile = asyncHandler(async (req, res) => {
+  const data = updateProfileSchema.parse(req.body);
+
+  const patch = {};
+  if (data.fullName !== undefined) patch.fullName = data.fullName;
+  if (data.bio !== undefined) patch.bio = data.bio || null;
+  if (data.gender !== undefined) patch.gender = data.gender;
+  if (data.occupation !== undefined) patch.occupation = data.occupation || null;
+  if (data.avatarUrl !== undefined) patch.avatarUrl = data.avatarUrl || null;
+
+  const user = await prisma.user.update({
+    where: { id: req.user.id },
+    data: patch,
+    select: authUserSelect
+  });
+
+  return res.json({ message: "Profile updated", user });
+});
+
+export const changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
+
+  const user = await prisma.user.findUnique({
+    where: { id: req.user.id },
+    select: { id: true, passwordHash: true }
+  });
+  if (!user) {
+    throw new HttpError(404, "NOT_FOUND", "User not found");
+  }
+
+  const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!isMatch) {
+    const message = "Current password is incorrect";
+    return res.status(400).json({
+      message,
+      error: { code: "INVALID_PASSWORD", message }
+    });
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+
+  // Change the password and revoke every outstanding refresh token so any
+  // other session is forced to re-authenticate.
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash }
+    }),
+    prisma.refreshToken.updateMany({
+      where: { userId: user.id, revokedAt: null },
+      data: { revokedAt: new Date() }
+    })
+  ]);
+
+  return res.json({ message: "Password changed successfully" });
 });
 
 export const sendPhoneOtp = asyncHandler(async (req, res) => {

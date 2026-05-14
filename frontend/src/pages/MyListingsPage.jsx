@@ -8,6 +8,7 @@ import {
   Trash2,
   Home as HomeIcon,
   Eye,
+  Users,
 } from "lucide-react";
 import { apiClient } from "../api/client";
 import Button from "../components/common/Button";
@@ -147,6 +148,11 @@ export default function MyListingsPage() {
                     <Link to={`/listings/${item.id}/edit`}>
                       <Button variant="outline" size="sm">
                         <Edit3 size={14} /> Изменить
+                      </Button>
+                    </Link>
+                    <Link to={`/listings/${item.id}/applicants`}>
+                      <Button variant="outline" size="sm">
+                        <Users size={14} /> Заявки
                       </Button>
                     </Link>
                     {item.status !== "archived" && (
