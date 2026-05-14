@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   acceptApplication,
   createApplication,
+  getListingApplications,
   getMyApplications,
   rejectApplication,
   withdrawApplication
@@ -18,6 +19,12 @@ applicationRouter.post(
   createApplication
 );
 applicationRouter.get("/applications/me", requireAuth, getMyApplications);
+applicationRouter.get(
+  "/listings/:listingId/applications",
+  requireAuth,
+  requireRoles("host", "admin"),
+  getListingApplications
+);
 applicationRouter.patch(
   "/applications/:id/withdraw",
   requireAuth,

@@ -8,11 +8,12 @@ import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
 import VerifyPhonePage from "../pages/VerifyPhonePage";
 import ProfilePage from "../pages/ProfilePage";
-import PlaceholderPage from "../pages/PlaceholderPage";
+import SettingsPage from "../pages/SettingsPage";
 import ForbiddenPage from "../pages/ForbiddenPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import MyListingsPage from "../pages/MyListingsPage";
 import ListingFormPage from "../pages/ListingFormPage";
+import ListingApplicantsPage from "../pages/ListingApplicantsPage";
 import FavoritesPage from "../pages/FavoritesPage";
 import ApplicationsPage from "../pages/ApplicationsPage";
 import AdminDashboardPage from "../pages/AdminDashboardPage";
@@ -27,6 +28,9 @@ import HowItWorksPage from "../pages/HowItWorksPage";
 import MessagesPage from "../pages/MessagesPage";
 import NeighborhoodsPage from "../pages/NeighborhoodsPage";
 import SafetyPage from "../pages/SafetyPage";
+import PricingPage from "../pages/PricingPage";
+import PrivacyPage from "../pages/PrivacyPage";
+import TermsPage from "../pages/TermsPage";
 
 export default function AppRoutes() {
   return (
@@ -45,33 +49,9 @@ export default function AppRoutes() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/safety" element={<SafetyPage />} />
       <Route path="/403" element={<ForbiddenPage />} />
-      <Route
-        path="/pricing"
-        element={
-          <PlaceholderPage
-            title="Цены и тарифы"
-            description="Раздел с тарифами и вариантами продвижения объявлений."
-          />
-        }
-      />
-      <Route
-        path="/privacy"
-        element={
-          <PlaceholderPage
-            title="Конфиденциальность"
-            description="Здесь будут правила обработки персональных данных."
-          />
-        }
-      />
-      <Route
-        path="/terms"
-        element={
-          <PlaceholderPage
-            title="Условия использования"
-            description="Здесь будут опубликованы правила использования платформы."
-          />
-        }
-      />
+      <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/verify-phone" element={<VerifyPhonePage />} />
@@ -79,15 +59,7 @@ export default function AppRoutes() {
         <Route path="/favorites" element={<FavoritesPage />} />
         <Route path="/applications" element={<ApplicationsPage />} />
         <Route path="/messages" element={<MessagesPage />} />
-        <Route
-          path="/settings"
-          element={
-            <PlaceholderPage
-              title="Настройки"
-              description="Управление аккаунтом, уведомлениями и параметрами безопасности."
-            />
-          }
-        />
+        <Route path="/settings" element={<SettingsPage />} />
       </Route>
 
       <Route element={<RoleRoute allowedRoles={["host", "admin"]} />}>
@@ -96,7 +68,7 @@ export default function AppRoutes() {
         <Route path="/listings/:id/edit" element={<ListingFormPage />} />
         <Route
           path="/listings/:id/applicants"
-          element={<PlaceholderPage title="Listing Applicants" />}
+          element={<ListingApplicantsPage />}
         />
       </Route>
 

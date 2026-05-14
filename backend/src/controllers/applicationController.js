@@ -47,6 +47,48 @@ export const createApplication = asyncHandler(async (req, res) => {
   return res.status(201).json({ message: "Application sent", item });
 });
 
+export const getListingApplications = asyncHandler(async (req, res) => {
+  const listingId = parseId(req.params.listingId);
+  if (!listingId) {
+    throw new HttpError(400, "INVALID_ID", "Invalid listing id");
+  }
+
+  const listing = await prisma.listing.findUnique({
+    where: { id: listingId },
+    select: { id: true, hostId: true, title: true }
+  });
+  if (!listing) {
+    throw new HttpError(404, "NOT_FOUND", "Listing not found");
+  }
+  if (listing.hostId !== req.user.id && req.user.role !== "admin") {
+    throw new HttpError(
+      403,
+      "FORBIDDEN",
+      "Only the listing host or an admin may view its applicants"
+    );
+  }
+
+  const items = await prisma.application.findMany({
+    where: { listingId },
+    include: {
+      seeker: {
+        select: {
+          id: true,
+          fullName: true,
+          avatarUrl: true,
+          occupation: true,
+          gender: true,
+          isPhoneVerified: true,
+          isIdVerified: true
+        }
+      }
+    },
+    orderBy: { createdAt: "desc" }
+  });
+
+  return res.json({ listing, items });
+});
+
 export const getMyApplications = asyncHandler(async (req, res) => {
   const items = await prisma.application.findMany({
     where: { seekerId: req.user.id },

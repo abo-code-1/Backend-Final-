@@ -117,6 +117,20 @@ export const switchRoleThunk = createAsyncThunk(
   }
 );
 
+export const updateProfileThunk = createAsyncThunk(
+  "auth/updateProfile",
+  async (payload, { rejectWithValue }) => {
+    try {
+      const { data } = await apiClient.patch("/auth/me", payload);
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Could not update profile"
+      );
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: "auth",
   initialState: {
@@ -242,6 +256,16 @@ const authSlice = createSlice({
         toast.success("Роль обновлена");
       })
       .addCase(switchRoleThunk.rejected, (_state, action) => {
+        toast.error(action.payload);
+      })
+      .addCase(updateProfileThunk.fulfilled, (state, action) => {
+        if (action.payload?.user) {
+          state.user = action.payload.user;
+          state.role = action.payload.user.role || state.role;
+        }
+        toast.success("Профиль обновлён");
+      })
+      .addCase(updateProfileThunk.rejected, (_state, action) => {
         toast.error(action.payload);
       });
   }

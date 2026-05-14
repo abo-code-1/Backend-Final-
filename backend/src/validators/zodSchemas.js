@@ -31,6 +31,27 @@ export const verifyOtpSchema = z.object({
   code: z.string().regex(/^\d{4,8}$/, "Code must be 4-8 digits")
 });
 
+export const updateProfileSchema = z
+  .object({
+    fullName: z.string().min(2, "Full name is too short").max(120).optional(),
+    bio: z.string().max(500, "Bio must be at most 500 characters").optional(),
+    gender: z.enum(["male", "female", "other"]).optional(),
+    occupation: z.string().max(120, "Occupation is too long").optional(),
+    avatarUrl: z
+      .string()
+      .url("Avatar must be a valid URL")
+      .or(z.literal(""))
+      .optional()
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "At least one field must be provided"
+  });
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: passwordSchema
+});
+
 export const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(1, "Password is required")
