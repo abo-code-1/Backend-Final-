@@ -14,7 +14,10 @@ const envSchema = z.object({
   ACCESS_TOKEN_TTL: z.string().default("15m"),
   REFRESH_TOKEN_TTL: z.string().default("7d"),
   CLIENT_URL: z.string().url().default("http://localhost:5173"),
-  CORS_ALLOWED_ORIGINS: z.string().optional()
+  CORS_ALLOWED_ORIGINS: z.string().optional(),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_VERIFY_SERVICE_SID: z.string().optional()
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -49,5 +52,10 @@ export const env = {
   accessTokenTtl: data.ACCESS_TOKEN_TTL,
   refreshTokenTtl: data.REFRESH_TOKEN_TTL,
   clientUrl: data.CLIENT_URL,
-  allowedOrigins
+  allowedOrigins,
+  twilio: {
+    accountSid: data.TWILIO_ACCOUNT_SID,
+    authToken: data.TWILIO_AUTH_TOKEN,
+    verifyServiceSid: data.TWILIO_VERIFY_SERVICE_SID
+  }
 };

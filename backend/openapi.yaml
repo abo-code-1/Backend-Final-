@@ -171,6 +171,7 @@ components:
         - email
         - password
         - fullName
+        - phone
       properties:
         email:
           type: string
@@ -185,6 +186,8 @@ components:
           example: 'Alice Nurlanovna'
         phone:
           type: string
+          description: 'E.164 format. SMS OTP is dispatched on register; verify via /auth/phone/verify-otp.'
+          pattern: '^\+[1-9]\d{7,14}$'
           example: '+77011234567'
         role:
           type: string
@@ -987,6 +990,86 @@ paths:
           $ref: '#/components/responses/Unprocessable'
         '500':
           $ref: '#/components/responses/ServerError'
+  /auth/phone/send-otp:
+    post:
+      tags:
+        - Auth
+      summary: 'Send an SMS OTP to the authenticated user''s phone'
+      description: "Triggers a Twilio Verify SMS code to the user's stored phone\nnumber. Rate-limited to **5 requests per minute per IP**.\nIf Twilio credentials are not configured the service operates in\nmock mode (any request returns 200 and the verify endpoint accepts\n`000000`).\n"
+      responses:
+        '200':
+          description: 'OTP dispatched (or already verified)'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  status:
+                    type: string
+                    example: pending
+                  mock:
+                    type: boolean
+                  alreadyVerified:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '502':
+          description: 'Upstream SMS provider failed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/phone/verify-otp:
+    post:
+      tags:
+        - Auth
+      summary: 'Verify an SMS OTP and mark phone as verified'
+      description: "Checks the supplied code against Twilio Verify. On success,\nflips `isPhoneVerified=true` on the user record and returns the\nupdated user. Rate-limited to **5 requests per minute per IP**.\n"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+                  pattern: '^\d{4,8}$'
+                  example: '123456'
+      responses:
+        '200':
+          description: 'OTP verified'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '502':
+          description: 'Upstream SMS provider failed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /listings:
     get:
       tags:

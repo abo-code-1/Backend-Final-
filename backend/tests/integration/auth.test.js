@@ -20,6 +20,7 @@ const validRegister = {
   email: "alice@example.com",
   password: "Sup3rStr0ng!",
   fullName: "Alice N.",
+  phone: "+77001234567",
   role: "seeker"
 };
 

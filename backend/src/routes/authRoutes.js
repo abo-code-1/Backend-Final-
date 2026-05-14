@@ -5,7 +5,9 @@ import {
   me,
   refresh,
   register,
-  switchRole
+  sendPhoneOtp,
+  switchRole,
+  verifyPhoneOtp
 } from "../controllers/authController.js";
 import { requireAuth } from "../middleware/auth.js";
 import { authRateLimiter } from "../middleware/rateLimit.js";
@@ -18,5 +20,7 @@ authRouter.post("/refresh", refresh);
 authRouter.post("/logout", logout);
 authRouter.get("/me", requireAuth, me);
 authRouter.patch("/switch-role", requireAuth, switchRole);
+authRouter.post("/phone/send-otp", authRateLimiter, requireAuth, sendPhoneOtp);
+authRouter.post("/phone/verify-otp", authRateLimiter, requireAuth, verifyPhoneOtp);
 
 export default authRouter;

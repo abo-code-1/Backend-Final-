@@ -6,6 +6,7 @@ import ListingsPage from "../pages/ListingsPage";
 import ListingDetailsPage from "../pages/ListingDetailsPage";
 import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
+import VerifyPhonePage from "../pages/VerifyPhonePage";
 import ProfilePage from "../pages/ProfilePage";
 import PlaceholderPage from "../pages/PlaceholderPage";
 import ForbiddenPage from "../pages/ForbiddenPage";
@@ -73,6 +74,7 @@ export default function AppRoutes() {
       />
 
       <Route element={<ProtectedRoute />}>
+        <Route path="/verify-phone" element={<VerifyPhonePage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/favorites" element={<FavoritesPage />} />
         <Route path="/applications" element={<ApplicationsPage />} />

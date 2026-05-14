@@ -75,6 +75,34 @@ export const logoutThunk = createAsyncThunk(
   }
 );
 
+export const sendPhoneOtpThunk = createAsyncThunk(
+  "auth/sendPhoneOtp",
+  async (_, { rejectWithValue }) => {
+    try {
+      const { data } = await apiClient.post("/auth/phone/send-otp");
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Could not send OTP"
+      );
+    }
+  }
+);
+
+export const verifyPhoneOtpThunk = createAsyncThunk(
+  "auth/verifyPhoneOtp",
+  async ({ code }, { rejectWithValue }) => {
+    try {
+      const { data } = await apiClient.post("/auth/phone/verify-otp", { code });
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Invalid code"
+      );
+    }
+  }
+);
+
 export const switchRoleThunk = createAsyncThunk(
   "auth/switchRole",
   async (role, { rejectWithValue }) => {
@@ -182,6 +210,29 @@ const authSlice = createSlice({
         tokenStorage.clear();
         setAuthToken(null);
         toast.info("Вы вышли из аккаунта");
+      })
+      .addCase(sendPhoneOtpThunk.fulfilled, (_state, action) => {
+        if (action.payload?.alreadyVerified) {
+          toast.info("Телефон уже подтверждён");
+        } else {
+          toast.success(
+            action.payload?.mock
+              ? "OTP отправлен (mock: введите 000000)"
+              : "Код отправлен по SMS"
+          );
+        }
+      })
+      .addCase(sendPhoneOtpThunk.rejected, (_state, action) => {
+        toast.error(action.payload);
+      })
+      .addCase(verifyPhoneOtpThunk.fulfilled, (state, action) => {
+        if (action.payload?.user) {
+          state.user = action.payload.user;
+        }
+        toast.success("Телефон подтверждён");
+      })
+      .addCase(verifyPhoneOtpThunk.rejected, (_state, action) => {
+        toast.error(action.payload);
       })
       .addCase(switchRoleThunk.fulfilled, (state, action) => {
         const { accessToken } = persistTokens(action.payload);
