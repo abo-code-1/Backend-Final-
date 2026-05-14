@@ -756,6 +756,79 @@ components:
             - rejected
         adminNote:
           type: string
+    UpdateProfileInput:
+      type: object
+      minProperties: 1
+      description: 'Partial profile update — at least one field must be provided.'
+      properties:
+        fullName:
+          type: string
+          minLength: 2
+          maxLength: 120
+          example: 'Alice Nurlanovna'
+        bio:
+          type: string
+          maxLength: 500
+          nullable: true
+          example: 'Tidy, quiet, early riser.'
+        gender:
+          type: string
+          enum:
+            - male
+            - female
+            - other
+        occupation:
+          type: string
+          maxLength: 120
+          nullable: true
+          example: Designer
+        avatarUrl:
+          type: string
+          nullable: true
+          description: 'A valid URL, or an empty string to clear the avatar.'
+          example: 'https://cdn.example.com/avatars/alice.jpg'
+    ChangePasswordInput:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+          example: Sup3rStr0ng!
+        newPassword:
+          type: string
+          description: '8–128 chars; must include lower, upper, digit, and a symbol.'
+          example: Even5tr0nger!
+    SeekerSummary:
+      type: object
+      description: 'Compact applicant profile returned with a listing''s applications.'
+      properties:
+        id:
+          type: integer
+        fullName:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        occupation:
+          type: string
+          nullable: true
+        gender:
+          type: string
+          nullable: true
+        isPhoneVerified:
+          type: boolean
+        isIdVerified:
+          type: boolean
+    ApplicationWithSeeker:
+      allOf:
+        -
+          $ref: '#/components/schemas/Application'
+      type: object
+      properties:
+        seeker:
+          $ref: '#/components/schemas/SeekerSummary'
   responses:
     BadRequest:
       description: 'Bad Request'
@@ -961,6 +1034,68 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    patch:
+      tags:
+        - Auth
+      summary: 'Update the authenticated user''s profile'
+      description: "Partial update of profile fields (`fullName`, `bio`, `gender`,\n`occupation`, `avatarUrl`). At least one field must be present, or the\nrequest fails validation. Returns the updated user record.\n"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /auth/change-password:
+    post:
+      tags:
+        - Auth
+      summary: 'Change the authenticated user''s password'
+      description: "Verifies the current password, stores a new bcrypt hash, and revokes\nevery outstanding refresh token so other sessions must re-authenticate.\nRate-limited to **5 requests per minute per IP** (disabled in\n`NODE_ENV=test`).\n"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordInput'
+      responses:
+        '200':
+          description: 'Password changed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          description: 'Current password is incorrect'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/ServerError'
   /auth/switch-role:
@@ -1530,6 +1665,45 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
   '/listings/{listingId}/applications':
+    get:
+      tags:
+        - Applications
+      summary: 'List a listing''s applicants (host or admin)'
+      description: "Returns every application submitted to the listing, newest first,\neach with a compact applicant profile. Only the listing's host or an\nadmin may call this.\n"
+      parameters:
+        -
+          $ref: '#/components/parameters/ListingIdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  listing:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      hostId:
+                        type: integer
+                      title:
+                        type: string
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApplicationWithSeeker'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
     post:
       tags:
         - Applications
