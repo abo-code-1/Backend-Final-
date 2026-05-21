@@ -3,50 +3,49 @@ import { prisma } from "../config/db.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { sendVerificationEmail } from "../utils/mailer.js";
 import { env } from "../config/env.js";
-import { emailVerifySchema } from "../validators/zodSchemas.js";
+import { emailVerifySchema, requestCodeSchema } from "../validators/zodSchemas.js";
 
 const CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const RESEND_COOLDOWN_MS = 60 * 1000; // 60 seconds between requests
 const MAX_ATTEMPTS = 5;
 
-const authUserSelect = {
-  id: true,
-  email: true,
-  fullName: true,
-  phone: true,
-  role: true,
-  avatarUrl: true,
-  bio: true,
-  gender: true,
-  occupation: true,
-  isPhoneVerified: true,
-  isEmailVerified: true,
-  isIdVerified: true,
-  isBanned: true,
-  createdAt: true
-};
-
 const generateCode = () => String(Math.floor(100000 + Math.random() * 900000));
 
-// POST /auth/email/request-code  (authenticated)
+/**
+ * Invalidate prior unconsumed codes for a user and issue a fresh one.
+ * Returns the plaintext code so the caller can email it.
+ */
+export async function issueCode(userId) {
+  await prisma.emailVerification.deleteMany({
+    where: { userId, consumedAt: null }
+  });
+  const code = generateCode();
+  const codeHash = await bcrypt.hash(code, 10);
+  await prisma.emailVerification.create({
+    data: { userId, codeHash, expiresAt: new Date(Date.now() + CODE_TTL_MS) }
+  });
+  return code;
+}
+
+// POST /auth/email/request-code  (public) — body: { email }
 export const requestEmailCode = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
+  const { email } = requestCodeSchema.parse(req.body);
 
   const user = await prisma.user.findUnique({
-    where: { id: userId },
+    where: { email: email.toLowerCase() },
     select: { id: true, email: true, isEmailVerified: true }
   });
 
+  // Don't reveal whether an account exists.
   if (!user) {
-    return res.status(404).json({ message: "User not found" });
+    return res.json({ message: "If that account exists, a code was sent." });
   }
   if (user.isEmailVerified) {
     return res.status(400).json({ message: "Email already verified" });
   }
 
-  // Throttle: block resend if a code was issued very recently.
   const recent = await prisma.emailVerification.findFirst({
-    where: { userId, consumedAt: null },
+    where: { userId: user.id, consumedAt: null },
     orderBy: { createdAt: "desc" }
   });
   if (recent && Date.now() - recent.createdAt.getTime() < RESEND_COOLDOWN_MS) {
@@ -58,26 +57,10 @@ export const requestEmailCode = asyncHandler(async (req, res) => {
       .json({ message: `Please wait ${waitSec}s before requesting a new code` });
   }
 
-  // Invalidate any prior unconsumed codes, then issue a fresh one.
-  await prisma.emailVerification.deleteMany({
-    where: { userId, consumedAt: null }
-  });
-
-  const code = generateCode();
-  const codeHash = await bcrypt.hash(code, 10);
-
-  await prisma.emailVerification.create({
-    data: {
-      userId,
-      codeHash,
-      expiresAt: new Date(Date.now() + CODE_TTL_MS)
-    }
-  });
-
+  const code = await issueCode(user.id);
   const { mocked } = await sendVerificationEmail(user.email, code);
 
   const payload = { message: "Verification code sent", email: user.email };
-  // In mock mode (no SMTP configured) surface the code so dev/demo can proceed.
   if (mocked && env.email.mock) {
     payload.devCode = code;
     payload.message = "Verification code generated (mock mode — check server logs)";
@@ -85,28 +68,25 @@ export const requestEmailCode = asyncHandler(async (req, res) => {
   return res.json(payload);
 });
 
-// POST /auth/email/verify  (authenticated)
+// POST /auth/email/verify  (public) — body: { email, code }
 export const verifyEmailCode = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
-  const { code } = emailVerifySchema.parse(req.body);
+  const { email, code } = emailVerifySchema.parse(req.body);
 
   const user = await prisma.user.findUnique({
-    where: { id: userId },
+    where: { email: email.toLowerCase() },
     select: { id: true, isEmailVerified: true }
   });
+
+  // Generic message — don't leak account existence.
   if (!user) {
-    return res.status(404).json({ message: "User not found" });
+    return res.status(400).json({ message: "Invalid code" });
   }
   if (user.isEmailVerified) {
-    const fresh = await prisma.user.findUnique({
-      where: { id: userId },
-      select: authUserSelect
-    });
-    return res.json({ message: "Email already verified", user: fresh });
+    return res.json({ message: "Email already verified" });
   }
 
   const record = await prisma.emailVerification.findFirst({
-    where: { userId, consumedAt: null },
+    where: { userId: user.id, consumedAt: null },
     orderBy: { createdAt: "desc" }
   });
 
@@ -135,18 +115,16 @@ export const verifyEmailCode = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: "Invalid code" });
   }
 
-  // Success: consume the code and mark the user verified.
-  const [, updatedUser] = await prisma.$transaction([
+  await prisma.$transaction([
     prisma.emailVerification.update({
       where: { id: record.id },
       data: { consumedAt: new Date() }
     }),
     prisma.user.update({
-      where: { id: userId },
-      data: { isEmailVerified: true },
-      select: authUserSelect
+      where: { id: user.id },
+      data: { isEmailVerified: true }
     })
   ]);
 
-  return res.json({ message: "Email verified", user: updatedUser });
+  return res.json({ message: "Email verified" });
 });

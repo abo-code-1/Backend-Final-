@@ -138,7 +138,6 @@ function UserMenu() {
               <MenuLink to="/applications" icon={Inbox} label="Мои заявки" />
               <MenuLink to="/favorites" icon={Heart} label="Избранное" />
               <MenuLink to="/profile" icon={User} label="Профиль" />
-              <MenuLink to="/verify-email" icon={Shield} label="Подтвердить email" />
               <MenuDivider />
               {(role === "host" || role === "admin") && (
                 <>

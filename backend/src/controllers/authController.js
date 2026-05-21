@@ -23,13 +23,23 @@ const authUserSelect = {
 
 export const register = asyncHandler(async (req, res) => {
   const validatedData = registerSchema.parse(req.body);
-  const { email, password, fullName, phone, role = "seeker" } = validatedData;
+  const { email, password, fullName, role = "seeker" } = validatedData;
+  // Blank phone from the form arrives as "" — store NULL so empty values don't
+  // collide on the unique index (multiple NULLs are allowed, "" is not).
+  const phone = validatedData.phone?.trim() || null;
 
   const existingUser = await prisma.user.findUnique({
     where: { email: email.toLowerCase() }
   });
   if (existingUser) {
     return res.status(409).json({ message: "Email already registered" });
+  }
+
+  if (phone) {
+    const existingPhone = await prisma.user.findUnique({ where: { phone } });
+    if (existingPhone) {
+      return res.status(409).json({ message: "Phone number already registered" });
+    }
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -44,11 +54,9 @@ export const register = asyncHandler(async (req, res) => {
     select: authUserSelect
   });
 
-  const token = signToken({ userId: user.id, role: user.role });
-
+  // No token on register — the user must verify their email, then log in.
   return res.status(201).json({
-    message: "Registered successfully",
-    token,
+    message: "Account created. Verify your email to continue.",
     user
   });
 });
@@ -68,6 +76,15 @@ export const login = asyncHandler(async (req, res) => {
   const isMatch = await bcrypt.compare(password, user.passwordHash);
   if (!isMatch) {
     return res.status(401).json({ message: "Invalid credentials" });
+  }
+
+  // Email verification is a gate: no login until the address is confirmed.
+  if (!user.isEmailVerified) {
+    return res.status(403).json({
+      message: "Please verify your email before logging in",
+      code: "EMAIL_NOT_VERIFIED",
+      email: user.email
+    });
   }
 
   const token = signToken({ userId: user.id, role: user.role });

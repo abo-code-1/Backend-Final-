@@ -31,7 +31,9 @@ export const loginThunk = createAsyncThunk(
       const { data } = await apiClient.post("/auth/login", payload);
       return data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || "Login failed");
+      // Keep the full error payload (message + code + email) so the UI can
+      // redirect unverified users to the verification screen.
+      return rejectWithValue(error.response?.data || { message: "Login failed" });
     }
   }
 );
@@ -81,14 +83,10 @@ const authSlice = createSlice({
         state.status = "loading";
         state.error = null;
       })
-      .addCase(registerThunk.fulfilled, (state, action) => {
+      .addCase(registerThunk.fulfilled, (state) => {
+        // Register does NOT log in — the user verifies email first, then logs in.
         state.status = "succeeded";
-        state.user = action.payload.user;
-        state.token = action.payload.token;
-        state.role = action.payload.user?.role || null;
-        localStorage.setItem(TOKEN_KEY, action.payload.token);
-        setAuthToken(action.payload.token);
-        toast.success("Регистрация выполнена");
+        toast.success("Аккаунт создан. Подтвердите email.");
       })
       .addCase(registerThunk.rejected, (state, action) => {
         state.status = "failed";
@@ -109,9 +107,10 @@ const authSlice = createSlice({
         toast.success("Вход выполнен");
       })
       .addCase(loginThunk.rejected, (state, action) => {
+        const message = action.payload?.message || "Login failed";
         state.status = "failed";
-        state.error = action.payload;
-        toast.error(action.payload);
+        state.error = message;
+        toast.error(message);
       })
       .addCase(loadProfileThunk.pending, (state) => {
         state.status = "loading";

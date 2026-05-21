@@ -44,6 +44,7 @@ export default function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/neighborhoods" element={<NeighborhoodsPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/safety" element={<SafetyPage />} />
       <Route path="/bill-split" element={<BillSplitPage />} />
       <Route path="/403" element={<ForbiddenPage />} />
@@ -77,7 +78,6 @@ export default function AppRoutes() {
 
       <Route element={<ProtectedRoute />}>
         <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route path="/favorites" element={<FavoritesPage />} />
         <Route path="/applications" element={<ApplicationsPage />} />
         <Route path="/messages" element={<MessagesPage />} />

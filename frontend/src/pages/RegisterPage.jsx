@@ -46,7 +46,10 @@ export default function RegisterPage() {
 
   const onSubmit = async (data) => {
     const result = await dispatch(registerThunk(data));
-    if (registerThunk.fulfilled.match(result)) navigate("/");
+    if (registerThunk.fulfilled.match(result)) {
+      // No auto-login: send them to verify their email, then they log in.
+      navigate("/verify-email", { state: { email: data.email } });
+    }
   };
 
   return (

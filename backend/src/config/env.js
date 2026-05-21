@@ -1,6 +1,15 @@
+import path from "path";
+import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 
-dotenv.config();
+// The single source of truth for env lives at the repo root (one level above
+// backend/). dotenv defaults to process.cwd(), which is backend/ when the
+// server is started via `npm run dev`/`npm test` — so it never found the root
+// .env and silently fell back to mock mode. Resolve the path explicitly.
+// Note: dotenv does not override vars already set (e.g. the test script blanks
+// SMTP_* to force mock mode), so existing process.env values still win.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
 const smtpHost = process.env.SMTP_HOST || "";
 const smtpUser = process.env.SMTP_USER || "";

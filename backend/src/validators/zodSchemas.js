@@ -13,7 +13,12 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required")
 });
 
+export const requestCodeSchema = z.object({
+  email: z.string().email("Invalid email address")
+});
+
 export const emailVerifySchema = z.object({
+  email: z.string().email("Invalid email address"),
   code: z.string().regex(/^\d{6}$/, "Code must be 6 digits")
 });
 

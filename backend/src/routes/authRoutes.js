@@ -12,7 +12,8 @@ authRouter.post("/register", register);
 authRouter.post("/login", login);
 authRouter.get("/me", requireAuth, me);
 authRouter.patch("/switch-role", requireAuth, switchRole);
-authRouter.post("/email/request-code", requireAuth, requestEmailCode);
-authRouter.post("/email/verify", requireAuth, verifyEmailCode);
+// Public: an unverified user isn't logged in yet, so these can't require auth.
+authRouter.post("/email/request-code", requestEmailCode);
+authRouter.post("/email/verify", verifyEmailCode);
 
 export default authRouter;
