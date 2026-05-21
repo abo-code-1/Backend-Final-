@@ -6,8 +6,11 @@ import { ToastContainer } from "react-toastify";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
 import { store } from "./store";
+import { installSessionExpiredBridge } from "./store/authSlice";
 import "react-toastify/dist/ReactToastify.css";
 import "./styles/index.css";
+
+installSessionExpiredBridge(store);
 
 const queryClient = new QueryClient({
   defaultOptions: {

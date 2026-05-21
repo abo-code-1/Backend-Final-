@@ -1,38 +1,73 @@
 import { z } from "zod";
 
+export class HttpError extends Error {
+  constructor(statusCode, code, message, details) {
+    super(message);
+    this.statusCode = statusCode;
+    this.code = code;
+    this.details = details;
+  }
+}
+
+// All error responses include BOTH a structured `error` envelope AND a
+// top-level `message` (and `errors` for validation) for legacy clients that
+// read `response.data.message` directly (the existing frontend does this).
+const errorBody = (code, message, extra = {}) => ({
+  message,
+  error: { code, message, ...(extra.details ? { details: extra.details } : {}) },
+  ...(extra.details ? { errors: extra.details } : {})
+});
+
 export const notFoundHandler = (req, res) => {
-  res.status(404).json({ message: `Path not found: ${req.originalUrl}` });
+  res.status(404).json(
+    errorBody("NOT_FOUND", `Path not found: ${req.originalUrl}`)
+  );
 };
 
-export const errorHandler = (err, req, res, next) => {
-  console.error(err.stack);
-
+export const errorHandler = (err, req, res, _next) => {
   if (err instanceof z.ZodError) {
-    // zod v4 exposes problems on `issues` (`errors` was removed); fall back for safety.
     const issues = err.issues || err.errors || [];
-    return res.status(400).json({
-      message: "Validation failed",
-      errors: issues.map((e) => ({
-        path: e.path.join("."),
-        message: e.message
-      }))
-    });
+    const details = issues.map((e) => ({
+      path: Array.isArray(e.path) ? e.path.join(".") : String(e.path),
+      message: e.message
+    }));
+    return res
+      .status(422)
+      .json(errorBody("VALIDATION_FAILED", "Validation failed", { details }));
   }
 
-  // Prisma unique-constraint violation → clean 409 instead of a leaked 500.
-  if (err.code === "P2002") {
-    const target = err.meta?.target;
-    const fields = Array.isArray(target) ? target.join(", ") : target;
-    return res.status(409).json({
-      message: fields ? `Already in use: ${fields}` : "Resource already exists"
-    });
+  if (err instanceof HttpError) {
+    return res
+      .status(err.statusCode)
+      .json(errorBody(err.code, err.message, { details: err.details }));
   }
+
+  // Prisma known error codes
+  if (err && err.code === "P2002") {
+    return res
+      .status(409)
+      .json(
+        errorBody("UNIQUE_VIOLATION", "Resource already exists", {
+          details: err.meta || null
+        })
+      );
+  }
+  if (err && err.code === "P2025") {
+    return res
+      .status(404)
+      .json(errorBody("NOT_FOUND", err.meta?.cause || "Not found"));
+  }
+
+  // eslint-disable-next-line no-console
+  console.error(err.stack || err);
 
   const statusCode = err.statusCode || 500;
-  const message = err.message || "Internal Server Error";
-
-  res.status(statusCode).json({
-    message,
-    ...(process.env.NODE_ENV === "development" && { stack: err.stack })
-  });
+  const body = errorBody(
+    err.code || "INTERNAL_ERROR",
+    err.message || "Internal Server Error"
+  );
+  if (process.env.NODE_ENV === "development" && err.stack) {
+    body.error.stack = err.stack;
+  }
+  return res.status(statusCode).json(body);
 };

@@ -22,8 +22,20 @@ import { cn } from "../utils/cn";
 const schema = z.object({
   fullName: z.string().min(2, "Введите полное имя"),
   email: z.string().email("Введите корректный email"),
-  password: z.string().min(6, "Пароль должен быть не менее 6 символов"),
-  phone: z.string().optional(),
+  password: z
+    .string()
+    .min(8, "Пароль должен быть не менее 8 символов")
+    .max(128, "Пароль слишком длинный")
+    .refine((v) => /[a-z]/.test(v), "Пароль должен содержать строчную букву")
+    .refine((v) => /[A-Z]/.test(v), "Пароль должен содержать заглавную букву")
+    .refine((v) => /[0-9]/.test(v), "Пароль должен содержать цифру")
+    .refine((v) => /[^A-Za-z0-9]/.test(v), "Пароль должен содержать символ"),
+  phone: z
+    .string()
+    .regex(
+      /^\+[1-9]\d{7,14}$/,
+      "Введите номер в формате +77001234567"
+    ),
   role: z.enum(["seeker", "host"], { required_error: "Выберите роль" }),
 });
 
@@ -47,7 +59,7 @@ export default function RegisterPage() {
   const onSubmit = async (data) => {
     const result = await dispatch(registerThunk(data));
     if (registerThunk.fulfilled.match(result)) {
-      // No auto-login: send them to verify their email, then they log in.
+      // Account is created (and logged in); send them to confirm their email.
       navigate("/verify-email", { state: { email: data.email } });
     }
   };
@@ -144,8 +156,9 @@ export default function RegisterPage() {
                 />
                 <Input
                   label="Телефон"
-                  placeholder="+7 777 ..."
+                  placeholder="+77001234567"
                   className="pl-10"
+                  hint="В формате E.164, например +77001234567"
                   error={errors.phone?.message}
                   {...register("phone")}
                 />
@@ -162,7 +175,7 @@ export default function RegisterPage() {
                 type="password"
                 placeholder="••••••••"
                 className="pl-10"
-                hint="Минимум 6 символов"
+                hint="8+ символов: строчная, заглавная, цифра, символ"
                 error={errors.password?.message}
                 {...register("password")}
               />

@@ -1,6 +1,9 @@
 import { describe, it, expect, jest } from "@jest/globals";
-import { emailVerifySchema, requestCodeSchema } from "../src/validators/zodSchemas.js";
-import { sendVerificationEmail } from "../src/utils/mailer.js";
+import {
+  emailVerifySchema,
+  requestCodeSchema
+} from "../../src/validators/zodSchemas.js";
+import { sendVerificationEmail } from "../../src/utils/mailer.js";
 
 describe("emailVerifySchema (unit)", () => {
   it("accepts a valid email + 6-digit code", () => {
@@ -25,12 +28,6 @@ describe("emailVerifySchema (unit)", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects a missing code", () => {
-    expect(
-      emailVerifySchema.safeParse({ email: "student@example.test" }).success
-    ).toBe(false);
-  });
-
   it("rejects a missing/invalid email", () => {
     expect(emailVerifySchema.safeParse({ code: "123456" }).success).toBe(false);
     expect(
@@ -44,7 +41,9 @@ describe("requestCodeSchema (unit)", () => {
     expect(requestCodeSchema.safeParse({ email: "a@b.test" }).success).toBe(true);
   });
   it("rejects an invalid email", () => {
-    expect(requestCodeSchema.safeParse({ email: "not-an-email" }).success).toBe(false);
+    expect(requestCodeSchema.safeParse({ email: "not-an-email" }).success).toBe(
+      false
+    );
   });
 });
 

@@ -23,6 +23,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: dev
     container_name: roomie_kz_backend
     depends_on:
       db:
@@ -43,6 +44,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: dev
     container_name: roomie_kz_frontend
     depends_on:
       - backend

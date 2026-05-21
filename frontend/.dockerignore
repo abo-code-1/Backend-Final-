@@ -1,12 +1,28 @@
 node_modules
 node_modules.bak
-npm-debug.log
 dist
 .git
 .gitignore
+.dockerignore
+docker-compose*.yml
+Dockerfile
+
+# Env / secrets — Vite picks env at build time, never bake real secrets here
 .env
 .env.*
-Dockerfile
-.dockerignore
+!.env.example
+
+# Logs / OS / editor
 *.log
 .DS_Store
+.vscode
+.idea
+.cache
+tmp
+
+# Test artefacts
+coverage
+
+# Claude / local metadata
+.claude
+.mcp.json
