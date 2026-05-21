@@ -26,6 +26,8 @@ import HowItWorksPage from "../pages/HowItWorksPage";
 import MessagesPage from "../pages/MessagesPage";
 import NeighborhoodsPage from "../pages/NeighborhoodsPage";
 import SafetyPage from "../pages/SafetyPage";
+import BillSplitPage from "../pages/BillSplitPage";
+import VerifyEmailPage from "../pages/VerifyEmailPage";
 
 export default function AppRoutes() {
   return (
@@ -43,6 +45,7 @@ export default function AppRoutes() {
       <Route path="/neighborhoods" element={<NeighborhoodsPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/safety" element={<SafetyPage />} />
+      <Route path="/bill-split" element={<BillSplitPage />} />
       <Route path="/403" element={<ForbiddenPage />} />
       <Route
         path="/pricing"
@@ -74,6 +77,7 @@ export default function AppRoutes() {
 
       <Route element={<ProtectedRoute />}>
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route path="/favorites" element={<FavoritesPage />} />
         <Route path="/applications" element={<ApplicationsPage />} />
         <Route path="/messages" element={<MessagesPage />} />

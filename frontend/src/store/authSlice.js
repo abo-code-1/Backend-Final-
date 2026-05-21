@@ -60,6 +60,10 @@ const authSlice = createSlice({
     error: null
   },
   reducers: {
+    setUser(state, action) {
+      state.user = action.payload;
+      state.role = action.payload?.role || null;
+    },
     logout(state) {
       state.user = null;
       state.token = null;
@@ -132,5 +136,5 @@ const authSlice = createSlice({
   }
 });
 
-export const { logout } = authSlice.actions;
+export const { logout, setUser } = authSlice.actions;
 export default authSlice.reducer;

@@ -138,6 +138,7 @@ function UserMenu() {
               <MenuLink to="/applications" icon={Inbox} label="Мои заявки" />
               <MenuLink to="/favorites" icon={Heart} label="Избранное" />
               <MenuLink to="/profile" icon={User} label="Профиль" />
+              <MenuLink to="/verify-email" icon={Shield} label="Подтвердить email" />
               <MenuDivider />
               {(role === "host" || role === "admin") && (
                 <>
@@ -195,6 +196,7 @@ function Header() {
         <nav className="hidden lg:flex items-center gap-1">
           <HeaderLink to="/listings" label="Жилье" />
           <HeaderLink to="/neighborhoods" label="Районы" />
+          <HeaderLink to="/bill-split" label="Калькулятор" />
           <HeaderLink to="/how-it-works" label="Как это работает" />
           {(role === "host" || role === "admin") && (
             <HeaderLink to="/my-listings" label="Мои объявления" />
