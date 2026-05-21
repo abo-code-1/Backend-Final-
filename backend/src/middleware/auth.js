@@ -21,6 +21,7 @@ export const requireAuth = async (req, res, next) => {
         fullName: true,
         role: true,
         isPhoneVerified: true,
+        isEmailVerified: true,
         isIdVerified: true,
         isBanned: true
       }

@@ -10,7 +10,9 @@
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
-    "prisma:seed": "node prisma/seed.js"
+    "prisma:seed": "node prisma/seed.js",
+    "test": "NODE_OPTIONS=--experimental-vm-modules NODE_ENV=test SMTP_HOST= SMTP_USER= SMTP_PASS= jest --runInBand --forceExit",
+    "test:unit": "NODE_OPTIONS=--experimental-vm-modules NODE_ENV=test SMTP_HOST= SMTP_USER= SMTP_PASS= jest --runInBand tests/emailVerification.unit.test.js"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
@@ -20,10 +22,13 @@
     "express": "^4.21.1",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.16",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "jest": "^29.7.0",
     "nodemon": "^3.1.7",
-    "prisma": "^5.22.0"
+    "prisma": "^5.22.0",
+    "supertest": "^7.0.0"
   }
 }

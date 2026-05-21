@@ -15,6 +15,7 @@ const authUserSelect = {
   gender: true,
   occupation: true,
   isPhoneVerified: true,
+  isEmailVerified: true,
   isIdVerified: true,
   isBanned: true,
   createdAt: true

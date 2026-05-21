@@ -13,6 +13,10 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required")
 });
 
+export const emailVerifySchema = z.object({
+  code: z.string().regex(/^\d{6}$/, "Code must be 6 digits")
+});
+
 export const listingSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters"),
   description: z.string().min(10, "Description must be at least 10 characters"),

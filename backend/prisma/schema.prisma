@@ -85,6 +85,7 @@ model User {
   gender           String?
   occupation       String?
   isPhoneVerified  Boolean  @default(false) @map("is_phone_verified")
+  isEmailVerified  Boolean  @default(false) @map("is_email_verified")
   isIdVerified     Boolean  @default(false) @map("is_id_verified")
   isBanned         Boolean  @default(false) @map("is_banned")
   createdAt        DateTime @default(now()) @map("created_at")
@@ -98,8 +99,24 @@ model User {
   reviewsReceived  Review[] @relation("RevieweeReviews")
   savedSearches    SavedSearch[]
   idVerifications  IdVerification[]
+  emailVerifications EmailVerification[]
 
   @@map("users")
+}
+
+model EmailVerification {
+  id         Int       @id @default(autoincrement())
+  userId     Int       @map("user_id")
+  codeHash   String    @map("code_hash")
+  expiresAt  DateTime  @map("expires_at")
+  attempts   Int       @default(0)
+  consumedAt DateTime? @map("consumed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verifications")
 }
 
 model LifestyleProfile {
