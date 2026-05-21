@@ -8,9 +8,11 @@ export const errorHandler = (err, req, res, next) => {
   console.error(err.stack);
 
   if (err instanceof z.ZodError) {
+    // zod v4 exposes problems on `issues` (`errors` was removed); fall back for safety.
+    const issues = err.issues || err.errors || [];
     return res.status(400).json({
       message: "Validation failed",
-      errors: err.errors.map((e) => ({
+      errors: issues.map((e) => ({
         path: e.path.join("."),
         message: e.message
       }))
