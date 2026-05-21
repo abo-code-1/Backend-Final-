@@ -195,6 +195,7 @@ function Header() {
         <nav className="hidden lg:flex items-center gap-1">
           <HeaderLink to="/listings" label="Жилье" />
           <HeaderLink to="/neighborhoods" label="Районы" />
+          <HeaderLink to="/bill-split" label="Калькулятор" />
           <HeaderLink to="/how-it-works" label="Как это работает" />
           {(role === "host" || role === "admin") && (
             <HeaderLink to="/my-listings" label="Мои объявления" />

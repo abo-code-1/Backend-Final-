@@ -1,5 +1,13 @@
 import { execSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import dotenv from "dotenv";
 import pg from "pg";
+
+// globalSetup runs before any test module (and before src/config/env.js loads
+// dotenv), so load the root .env here too — that's where DATABASE_URL lives.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const TEST_DB_NAME = process.env.TEST_DB_NAME || "roomie_kz_test";
 

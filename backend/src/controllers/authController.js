@@ -14,14 +14,10 @@ import {
   loginSchema,
   refreshSchema,
   registerSchema,
-  updateProfileSchema,
-  verifyOtpSchema
+  updateProfileSchema
 } from "../validators/zodSchemas.js";
-import {
-  checkOtp,
-  isTwilioConfigured,
-  sendOtp
-} from "../services/twilioService.js";
+import { sendVerificationEmail } from "../utils/mailer.js";
+import { issueCode } from "./emailVerificationController.js";
 
 const authUserSelect = {
   id: true,
@@ -34,6 +30,7 @@ const authUserSelect = {
   gender: true,
   occupation: true,
   isPhoneVerified: true,
+  isEmailVerified: true,
   isIdVerified: true,
   isBanned: true,
   createdAt: true
@@ -62,7 +59,10 @@ const issueTokensForUser = async (user) => {
 
 export const register = asyncHandler(async (req, res) => {
   const validatedData = registerSchema.parse(req.body);
-  const { email, password, fullName, phone, role = "seeker" } = validatedData;
+  const { email, password, fullName, role = "seeker" } = validatedData;
+  // Blank phone from the form arrives as "" — store NULL so empty values don't
+  // collide on the unique index (multiple NULLs are allowed, "" is not).
+  const phone = validatedData.phone?.trim() || null;
 
   const existingUser = await prisma.user.findUnique({
     where: { email: email.toLowerCase() }
@@ -75,13 +75,15 @@ export const register = asyncHandler(async (req, res) => {
     });
   }
 
-  const existingPhone = await prisma.user.findUnique({ where: { phone } });
-  if (existingPhone) {
-    const message = "Phone already registered";
-    return res.status(409).json({
-      message,
-      error: { code: "PHONE_TAKEN", message }
-    });
+  if (phone) {
+    const existingPhone = await prisma.user.findUnique({ where: { phone } });
+    if (existingPhone) {
+      const message = "Phone already registered";
+      return res.status(409).json({
+        message,
+        error: { code: "PHONE_TAKEN", message }
+      });
+    }
   }
 
   const hashedPassword = await bcrypt.hash(password, 12);
@@ -98,17 +100,20 @@ export const register = asyncHandler(async (req, res) => {
 
   const { accessToken, refreshToken } = await issueTokensForUser(user);
 
-  // Best-effort: kick off SMS OTP send. Failures should not block registration —
-  // the client can call /auth/phone/send-otp to retry.
-  let otpDispatched = false;
-  let otpError = null;
+  // Best-effort: send the email verification code. Failures shouldn't block
+  // registration — the client can call /auth/email/request-code to retry.
+  let emailDispatched = false;
+  let emailError = null;
+  let emailMock = false;
   try {
-    await sendOtp(phone);
-    otpDispatched = true;
+    const code = await issueCode(user.id);
+    const { mocked } = await sendVerificationEmail(user.email, code);
+    emailDispatched = true;
+    emailMock = mocked;
   } catch (e) {
-    otpError = e?.message || "Failed to send OTP";
+    emailError = e?.message || "Failed to send verification email";
     // eslint-disable-next-line no-console
-    console.error("[twilio] sendOtp on register failed:", otpError);
+    console.error("[mailer] sendVerificationEmail on register failed:", emailError);
   }
 
   return res.status(201).json({
@@ -117,11 +122,11 @@ export const register = asyncHandler(async (req, res) => {
     refreshToken,
     token: accessToken,
     user,
-    phoneVerification: {
+    emailVerification: {
       required: true,
-      dispatched: otpDispatched,
-      mock: !isTwilioConfigured(),
-      error: otpError
+      dispatched: emailDispatched,
+      mock: emailMock,
+      error: emailError
     }
   });
 });
@@ -308,100 +313,6 @@ export const changePassword = asyncHandler(async (req, res) => {
   ]);
 
   return res.json({ message: "Password changed successfully" });
-});
-
-export const sendPhoneOtp = asyncHandler(async (req, res) => {
-  const user = await prisma.user.findUnique({
-    where: { id: req.user.id },
-    select: { id: true, phone: true, isPhoneVerified: true }
-  });
-
-  if (!user?.phone) {
-    const message = "No phone number on file";
-    return res.status(400).json({
-      message,
-      error: { code: "NO_PHONE", message }
-    });
-  }
-  if (user.isPhoneVerified) {
-    return res.json({
-      message: "Phone already verified",
-      alreadyVerified: true
-    });
-  }
-
-  try {
-    const result = await sendOtp(user.phone);
-    return res.json({
-      message: "OTP sent",
-      status: result.status,
-      mock: result.mock || false
-    });
-  } catch (e) {
-    const message = e?.message || "Failed to send OTP";
-    return res.status(502).json({
-      message,
-      error: { code: "OTP_SEND_FAILED", message }
-    });
-  }
-});
-
-export const verifyPhoneOtp = asyncHandler(async (req, res) => {
-  const { code } = verifyOtpSchema.parse(req.body);
-
-  const user = await prisma.user.findUnique({
-    where: { id: req.user.id },
-    select: { id: true, phone: true, isPhoneVerified: true }
-  });
-
-  if (!user?.phone) {
-    const message = "No phone number on file";
-    return res.status(400).json({
-      message,
-      error: { code: "NO_PHONE", message }
-    });
-  }
-  if (user.isPhoneVerified) {
-    const updated = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: authUserSelect
-    });
-    return res.json({
-      message: "Phone already verified",
-      alreadyVerified: true,
-      user: updated
-    });
-  }
-
-  let result;
-  try {
-    result = await checkOtp(user.phone, code);
-  } catch (e) {
-    const message = e?.message || "Failed to check OTP";
-    return res.status(502).json({
-      message,
-      error: { code: "OTP_CHECK_FAILED", message }
-    });
-  }
-
-  if (result.status !== "approved") {
-    const message = "Invalid or expired code";
-    return res.status(400).json({
-      message,
-      error: { code: "INVALID_OTP", message }
-    });
-  }
-
-  const updated = await prisma.user.update({
-    where: { id: user.id },
-    data: { isPhoneVerified: true },
-    select: authUserSelect
-  });
-
-  return res.json({
-    message: "Phone verified successfully",
-    user: updated
-  });
 });
 
 export const switchRole = asyncHandler(async (req, res) => {

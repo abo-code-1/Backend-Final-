@@ -40,7 +40,9 @@ export const loginThunk = createAsyncThunk(
       const { data } = await apiClient.post("/auth/login", payload);
       return data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || "Login failed");
+      // Keep the full error payload (message + code + email) so the UI can
+      // react to specific cases if needed.
+      return rejectWithValue(error.response?.data || { message: "Login failed" });
     }
   }
 );
@@ -72,34 +74,6 @@ export const logoutThunk = createAsyncThunk(
       }
     }
     return true;
-  }
-);
-
-export const sendPhoneOtpThunk = createAsyncThunk(
-  "auth/sendPhoneOtp",
-  async (_, { rejectWithValue }) => {
-    try {
-      const { data } = await apiClient.post("/auth/phone/send-otp");
-      return data;
-    } catch (error) {
-      return rejectWithValue(
-        error.response?.data?.message || "Could not send OTP"
-      );
-    }
-  }
-);
-
-export const verifyPhoneOtpThunk = createAsyncThunk(
-  "auth/verifyPhoneOtp",
-  async ({ code }, { rejectWithValue }) => {
-    try {
-      const { data } = await apiClient.post("/auth/phone/verify-otp", { code });
-      return data;
-    } catch (error) {
-      return rejectWithValue(
-        error.response?.data?.message || "Invalid code"
-      );
-    }
   }
 );
 
@@ -174,7 +148,7 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(registerThunk.fulfilled, (state, action) =>
-        onAuthFulfilled(state, action, "Регистрация выполнена")
+        onAuthFulfilled(state, action, "Аккаунт создан. Подтвердите email.")
       )
       .addCase(registerThunk.rejected, (state, action) => {
         state.status = "failed";
@@ -189,9 +163,10 @@ const authSlice = createSlice({
         onAuthFulfilled(state, action, "Вход выполнен")
       )
       .addCase(loginThunk.rejected, (state, action) => {
+        const message = action.payload?.message || "Login failed";
         state.status = "failed";
-        state.error = action.payload;
-        toast.error(action.payload);
+        state.error = message;
+        toast.error(message);
       })
       .addCase(loadProfileThunk.pending, (state) => {
         state.status = "loading";
@@ -224,29 +199,6 @@ const authSlice = createSlice({
         tokenStorage.clear();
         setAuthToken(null);
         toast.info("Вы вышли из аккаунта");
-      })
-      .addCase(sendPhoneOtpThunk.fulfilled, (_state, action) => {
-        if (action.payload?.alreadyVerified) {
-          toast.info("Телефон уже подтверждён");
-        } else {
-          toast.success(
-            action.payload?.mock
-              ? "OTP отправлен (mock: введите 000000)"
-              : "Код отправлен по SMS"
-          );
-        }
-      })
-      .addCase(sendPhoneOtpThunk.rejected, (_state, action) => {
-        toast.error(action.payload);
-      })
-      .addCase(verifyPhoneOtpThunk.fulfilled, (state, action) => {
-        if (action.payload?.user) {
-          state.user = action.payload.user;
-        }
-        toast.success("Телефон подтверждён");
-      })
-      .addCase(verifyPhoneOtpThunk.rejected, (_state, action) => {
-        toast.error(action.payload);
       })
       .addCase(switchRoleThunk.fulfilled, (state, action) => {
         const { accessToken } = persistTokens(action.payload);

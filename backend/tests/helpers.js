@@ -5,6 +5,7 @@ export const truncateAll = async () => {
   await prisma.$executeRawUnsafe(`
     TRUNCATE TABLE
       "refresh_tokens",
+      "email_verifications",
       "applications",
       "favorites",
       "saved_searches",

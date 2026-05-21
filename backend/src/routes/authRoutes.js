@@ -6,11 +6,13 @@ import {
   me,
   refresh,
   register,
-  sendPhoneOtp,
   switchRole,
-  updateProfile,
-  verifyPhoneOtp
+  updateProfile
 } from "../controllers/authController.js";
+import {
+  requestEmailCode,
+  verifyEmailCode
+} from "../controllers/emailVerificationController.js";
 import { requireAuth } from "../middleware/auth.js";
 import { authRateLimiter } from "../middleware/rateLimit.js";
 
@@ -29,7 +31,9 @@ authRouter.post(
   changePassword
 );
 authRouter.patch("/switch-role", requireAuth, switchRole);
-authRouter.post("/phone/send-otp", authRateLimiter, requireAuth, sendPhoneOtp);
-authRouter.post("/phone/verify-otp", authRateLimiter, requireAuth, verifyPhoneOtp);
+// Public: a freshly-registered user may not be logged in, so these can't
+// require auth. They take the email in the body and flip isEmailVerified.
+authRouter.post("/email/request-code", authRateLimiter, requestEmailCode);
+authRouter.post("/email/verify", authRateLimiter, verifyEmailCode);
 
 export default authRouter;

@@ -58,7 +58,10 @@ export default function RegisterPage() {
 
   const onSubmit = async (data) => {
     const result = await dispatch(registerThunk(data));
-    if (registerThunk.fulfilled.match(result)) navigate("/verify-phone");
+    if (registerThunk.fulfilled.match(result)) {
+      // Account is created (and logged in); send them to confirm their email.
+      navigate("/verify-email", { state: { email: data.email } });
+    }
   };
 
   return (
@@ -155,7 +158,7 @@ export default function RegisterPage() {
                   label="Телефон"
                   placeholder="+77001234567"
                   className="pl-10"
-                  hint="В формате E.164, нужен для SMS-подтверждения"
+                  hint="В формате E.164, например +77001234567"
                   error={errors.phone?.message}
                   {...register("phone")}
                 />

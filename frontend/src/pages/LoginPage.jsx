@@ -26,7 +26,14 @@ export default function LoginPage() {
 
   const onSubmit = async (data) => {
     const result = await dispatch(loginThunk(data));
-    if (loginThunk.fulfilled.match(result)) navigate("/");
+    if (loginThunk.fulfilled.match(result)) {
+      navigate("/");
+    } else if (result.payload?.code === "EMAIL_NOT_VERIFIED") {
+      // Not verified yet — route them to confirm their email first.
+      navigate("/verify-email", {
+        state: { email: result.payload.email || data.email },
+      });
+    }
   };
 
   return (

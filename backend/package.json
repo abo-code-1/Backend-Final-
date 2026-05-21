@@ -12,7 +12,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "node prisma/seed.js",
     "lint": "node --check src/index.js",
-    "test": "cross-env NODE_ENV=test JWT_SECRET=test_jwt_secret_must_be_at_least_32_chars JWT_REFRESH_SECRET=test_refresh_secret_must_be_at_least_32_chars node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand"
+    "test": "cross-env NODE_ENV=test SMTP_HOST= SMTP_USER= SMTP_PASS= JWT_SECRET=test_jwt_secret_must_be_at_least_32_chars JWT_REFRESH_SECRET=test_refresh_secret_must_be_at_least_32_chars node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
@@ -24,8 +24,8 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.16",
     "swagger-ui-express": "^5.0.1",
-    "twilio": "^6.0.2",
     "yamljs": "^0.3.0",
     "zod": "^4.3.6"
   },

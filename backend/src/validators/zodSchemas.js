@@ -27,10 +27,6 @@ export const registerSchema = z.object({
   role: z.enum(["seeker", "host"]).optional()
 });
 
-export const verifyOtpSchema = z.object({
-  code: z.string().regex(/^\d{4,8}$/, "Code must be 4-8 digits")
-});
-
 export const updateProfileSchema = z
   .object({
     fullName: z.string().min(2, "Full name is too short").max(120).optional(),
@@ -59,6 +55,15 @@ export const loginSchema = z.object({
 
 export const refreshSchema = z.object({
   refreshToken: z.string().min(10, "refreshToken is required")
+});
+
+export const requestCodeSchema = z.object({
+  email: z.string().email("Invalid email address")
+});
+
+export const emailVerifySchema = z.object({
+  email: z.string().email("Invalid email address"),
+  code: z.string().regex(/^\d{6}$/, "Code must be 6 digits")
 });
 
 export const listingSchema = z.object({

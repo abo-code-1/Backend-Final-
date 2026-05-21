@@ -6,7 +6,6 @@ import ListingsPage from "../pages/ListingsPage";
 import ListingDetailsPage from "../pages/ListingDetailsPage";
 import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
-import VerifyPhonePage from "../pages/VerifyPhonePage";
 import ProfilePage from "../pages/ProfilePage";
 import SettingsPage from "../pages/SettingsPage";
 import ForbiddenPage from "../pages/ForbiddenPage";
@@ -28,6 +27,8 @@ import HowItWorksPage from "../pages/HowItWorksPage";
 import MessagesPage from "../pages/MessagesPage";
 import NeighborhoodsPage from "../pages/NeighborhoodsPage";
 import SafetyPage from "../pages/SafetyPage";
+import BillSplitPage from "../pages/BillSplitPage";
+import VerifyEmailPage from "../pages/VerifyEmailPage";
 import PricingPage from "../pages/PricingPage";
 import PrivacyPage from "../pages/PrivacyPage";
 import TermsPage from "../pages/TermsPage";
@@ -47,14 +48,15 @@ export default function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/neighborhoods" element={<NeighborhoodsPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/safety" element={<SafetyPage />} />
+      <Route path="/bill-split" element={<BillSplitPage />} />
       <Route path="/403" element={<ForbiddenPage />} />
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
 
       <Route element={<ProtectedRoute />}>
-        <Route path="/verify-phone" element={<VerifyPhonePage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/favorites" element={<FavoritesPage />} />
         <Route path="/applications" element={<ApplicationsPage />} />
