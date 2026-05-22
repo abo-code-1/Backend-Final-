@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Heart } from "lucide-react";
@@ -9,27 +9,44 @@ import PageHeader from "../components/common/PageHeader";
 import EmptyState from "../components/common/EmptyState";
 import ListingCard from "../components/listings/ListingCard";
 import ListingSkeleton from "../components/listings/ListingSkeleton";
+import Pagination from "../components/common/Pagination";
 
 export default function FavoritesPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pendingRemove, setPendingRemove] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await apiClient.get("/favorites");
+      const { data } = await apiClient.get("/favorites", {
+        params: { page, limit: pageSize },
+      });
+      const meta = data.pagination || { page: 1, totalPages: 1, total: 0 };
+      if (meta.totalPages > 0 && page > meta.totalPages) {
+        setPage(meta.totalPages);
+        return;
+      }
       setItems(data.items || []);
+      setPagination(meta);
     } catch (e) {
       toast.error(e.response?.data?.message || "Не удалось загрузить");
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+
+  const changePageSize = (n) => {
+    setPageSize(n);
+    setPage(1);
+  };
 
   const doRemove = async () => {
     if (!pendingRemove) return;
@@ -81,6 +98,16 @@ export default function FavoritesPage() {
               </div>
             ))}
           </div>
+        )}
+
+        {!loading && items.length > 0 && (
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            onChange={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={changePageSize}
+          />
         )}
       </div>
 

@@ -9,6 +9,7 @@ import { env } from "./config/env.js";
 import { prisma } from "./config/db.js";
 import apiRouter from "./routes/index.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
+import { globalRateLimiter } from "./middleware/rateLimit.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -28,6 +29,9 @@ app.use(
     credentials: true
   })
 );
+// After CORS so 429 responses still carry Access-Control-Allow-Origin headers
+// (otherwise the browser surfaces an opaque CORS/network error, not the 429).
+app.use(globalRateLimiter);
 app.use(express.json({ limit: "1mb" }));
 
 // OpenAPI / Swagger UI

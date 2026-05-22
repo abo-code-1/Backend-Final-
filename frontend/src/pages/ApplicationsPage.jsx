@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Inbox, ChevronRight, Clock, XCircle, CheckCircle2 } from "lucide-react";
@@ -9,6 +9,7 @@ import ConfirmModal from "../components/common/ConfirmModal";
 import PageHeader from "../components/common/PageHeader";
 import EmptyState from "../components/common/EmptyState";
 import { PageSpinner } from "../components/common/Spinner";
+import Pagination from "../components/common/Pagination";
 
 const STATUS = {
   pending: { label: "На рассмотрении", variant: "warning", icon: Clock },
@@ -21,22 +22,39 @@ export default function ApplicationsPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pendingWithdraw, setPendingWithdraw] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await apiClient.get("/applications/me");
+      const { data } = await apiClient.get("/applications/me", {
+        params: { page, limit: pageSize },
+      });
+      const meta = data.pagination || { page: 1, totalPages: 1, total: 0 };
+      // Stepped past the last page (e.g. after withdrawing the only item) — clamp.
+      if (meta.totalPages > 0 && page > meta.totalPages) {
+        setPage(meta.totalPages);
+        return;
+      }
       setItems(data.items || []);
+      setPagination(meta);
     } catch (e) {
       toast.error(e.response?.data?.message || "Не удалось загрузить заявки");
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+
+  const changePageSize = (n) => {
+    setPageSize(n);
+    setPage(1);
+  };
 
   const withdraw = async () => {
     if (!pendingWithdraw) return;
@@ -137,6 +155,16 @@ export default function ApplicationsPage() {
               );
             })}
           </div>
+        )}
+
+        {!loading && items.length > 0 && (
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            onChange={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={changePageSize}
+          />
         )}
       </div>
 

@@ -1,5 +1,7 @@
 import { prisma } from "../config/db.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { parsePagination, buildPaginationMeta } from "../utils/pagination.js";
+import { isSuperAdmin, ELEVATED_ROLES } from "../utils/roles.js";
 
 const parseId = (value) => {
   const parsed = Number.parseInt(value, 10);
@@ -23,35 +25,59 @@ export const getAdminStats = asyncHandler(async (_req, res) => {
 
 export const getAdminUsers = asyncHandler(async (req, res) => {
   const { role, search } = req.query;
-  const items = await prisma.user.findMany({
-    where: {
-      role: role || undefined,
-      OR: search
-        ? [
-            { fullName: { contains: search, mode: "insensitive" } },
-            { email: { contains: search, mode: "insensitive" } }
-          ]
-        : undefined
-    },
-    select: {
-      id: true,
-      fullName: true,
-      email: true,
-      role: true,
-      isBanned: true,
-      isPhoneVerified: true,
-      isIdVerified: true,
-      createdAt: true
-    },
-    orderBy: { createdAt: "desc" }
-  });
+  const { skip, take, page, limit } = parsePagination(req.query);
+  const where = {
+    role: role || undefined,
+    OR: search
+      ? [
+          { fullName: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } }
+        ]
+      : undefined
+  };
+  const [items, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        role: true,
+        isBanned: true,
+        isPhoneVerified: true,
+        isIdVerified: true,
+        createdAt: true
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take
+    }),
+    prisma.user.count({ where })
+  ]);
 
-  return res.json({ items });
+  return res.json({ items, pagination: buildPaginationMeta({ page, limit, total }) });
 });
 
 export const setUserBan = asyncHandler(async (req, res) => {
   const userId = parseId(req.params.id);
   if (!userId) return res.status(400).json({ message: "Invalid user id" });
+
+  if (userId === req.user.id) {
+    return res.status(400).json({ message: "You cannot ban your own account" });
+  }
+
+  const target = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, role: true }
+  });
+  if (!target) return res.status(404).json({ message: "User not found" });
+
+  // A super_admin account can only be touched by another super_admin.
+  if (target.role === "super_admin" && !isSuperAdmin(req.user.role)) {
+    return res
+      .status(403)
+      .json({ message: "Only a super admin can manage a super admin account" });
+  }
 
   const { isBanned } = req.body;
   const item = await prisma.user.update({
@@ -67,8 +93,31 @@ export const setUserRole = asyncHandler(async (req, res) => {
   if (!userId) return res.status(400).json({ message: "Invalid user id" });
 
   const { role } = req.body;
-  if (!["seeker", "host", "admin"].includes(role)) {
+  if (!["seeker", "host", "admin", "super_admin"].includes(role)) {
     return res.status(400).json({ message: "Invalid role" });
+  }
+
+  const target = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, role: true }
+  });
+  if (!target) return res.status(404).json({ message: "User not found" });
+
+  // Granting/revoking an elevated role (admin or super_admin), or changing a
+  // user who already holds one, is reserved for super_admins.
+  const touchesElevated =
+    ELEVATED_ROLES.includes(role) || ELEVATED_ROLES.includes(target.role);
+  if (touchesElevated && !isSuperAdmin(req.user.role)) {
+    return res
+      .status(403)
+      .json({ message: "Only a super admin can manage admin roles" });
+  }
+
+  // Don't let a super_admin demote themselves and risk locking everyone out.
+  if (userId === req.user.id && req.user.role === "super_admin" && role !== "super_admin") {
+    return res
+      .status(400)
+      .json({ message: "You cannot change your own super admin role" });
   }
 
   const item = await prisma.user.update({
@@ -79,17 +128,24 @@ export const setUserRole = asyncHandler(async (req, res) => {
   return res.json({ message: "User role updated", item });
 });
 
-export const getPendingListings = asyncHandler(async (_req, res) => {
-  const items = await prisma.listing.findMany({
-    where: { isApproved: false },
-    include: {
-      host: {
-        select: { id: true, fullName: true, email: true, isIdVerified: true }
-      }
-    },
-    orderBy: { createdAt: "desc" }
-  });
-  return res.json({ items });
+export const getPendingListings = asyncHandler(async (req, res) => {
+  const { skip, take, page, limit } = parsePagination(req.query);
+  const where = { isApproved: false };
+  const [items, total] = await Promise.all([
+    prisma.listing.findMany({
+      where,
+      include: {
+        host: {
+          select: { id: true, fullName: true, email: true, isIdVerified: true }
+        }
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take
+    }),
+    prisma.listing.count({ where })
+  ]);
+  return res.json({ items, pagination: buildPaginationMeta({ page, limit, total }) });
 });
 
 export const moderateListing = asyncHandler(async (req, res) => {
@@ -107,22 +163,29 @@ export const moderateListing = asyncHandler(async (req, res) => {
   return res.json({ message: "Listing moderation updated", item });
 });
 
-export const getPendingVerifications = asyncHandler(async (_req, res) => {
-  const items = await prisma.idVerification.findMany({
-    where: { status: "pending" },
-    include: {
-      user: {
-        select: {
-          id: true,
-          fullName: true,
-          email: true,
-          isIdVerified: true
+export const getPendingVerifications = asyncHandler(async (req, res) => {
+  const { skip, take, page, limit } = parsePagination(req.query);
+  const where = { status: "pending" };
+  const [items, total] = await Promise.all([
+    prisma.idVerification.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            isIdVerified: true
+          }
         }
-      }
-    },
-    orderBy: { createdAt: "desc" }
-  });
-  return res.json({ items });
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take
+    }),
+    prisma.idVerification.count({ where })
+  ]);
+  return res.json({ items, pagination: buildPaginationMeta({ page, limit, total }) });
 });
 
 export const reviewVerification = asyncHandler(async (req, res) => {

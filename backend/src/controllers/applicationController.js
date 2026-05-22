@@ -1,6 +1,8 @@
 import { prisma } from "../config/db.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { HttpError } from "../middleware/errorHandler.js";
+import { parsePagination, buildPaginationMeta } from "../utils/pagination.js";
+import { isAdminLevel } from "../utils/roles.js";
 
 const parseId = (value) => {
   const parsed = Number.parseInt(value, 10);
@@ -60,7 +62,7 @@ export const getListingApplications = asyncHandler(async (req, res) => {
   if (!listing) {
     throw new HttpError(404, "NOT_FOUND", "Listing not found");
   }
-  if (listing.hostId !== req.user.id && req.user.role !== "admin") {
+  if (listing.hostId !== req.user.id && !isAdminLevel(req.user.role)) {
     throw new HttpError(
       403,
       "FORBIDDEN",
@@ -68,44 +70,57 @@ export const getListingApplications = asyncHandler(async (req, res) => {
     );
   }
 
-  const items = await prisma.application.findMany({
-    where: { listingId },
-    include: {
-      seeker: {
-        select: {
-          id: true,
-          fullName: true,
-          avatarUrl: true,
-          occupation: true,
-          gender: true,
-          isPhoneVerified: true,
-          isIdVerified: true
+  const { skip, take, page, limit } = parsePagination(req.query);
+  const [items, total] = await Promise.all([
+    prisma.application.findMany({
+      where: { listingId },
+      include: {
+        seeker: {
+          select: {
+            id: true,
+            fullName: true,
+            avatarUrl: true,
+            occupation: true,
+            gender: true,
+            isPhoneVerified: true,
+            isIdVerified: true
+          }
         }
-      }
-    },
-    orderBy: { createdAt: "desc" }
-  });
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take
+    }),
+    prisma.application.count({ where: { listingId } })
+  ]);
 
-  return res.json({ listing, items });
+  return res.json({ listing, items, pagination: buildPaginationMeta({ page, limit, total }) });
 });
 
 export const getMyApplications = asyncHandler(async (req, res) => {
-  const items = await prisma.application.findMany({
-    where: { seekerId: req.user.id },
-    include: {
-      listing: {
-        select: {
-          id: true,
-          title: true,
-          city: true,
-          district: true,
-          monthlyRent: true
+  const { skip, take, page, limit } = parsePagination(req.query);
+  const where = { seekerId: req.user.id };
+  const [items, total] = await Promise.all([
+    prisma.application.findMany({
+      where,
+      include: {
+        listing: {
+          select: {
+            id: true,
+            title: true,
+            city: true,
+            district: true,
+            monthlyRent: true
+          }
         }
-      }
-    },
-    orderBy: { createdAt: "desc" }
-  });
-  return res.json({ items });
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take
+    }),
+    prisma.application.count({ where })
+  ]);
+  return res.json({ items, pagination: buildPaginationMeta({ page, limit, total }) });
 });
 
 /**
@@ -129,7 +144,7 @@ export const acceptApplication = asyncHandler(async (req, res) => {
         include: { listing: { select: { id: true, hostId: true } } }
       });
       if (!app) throw new HttpError(404, "NOT_FOUND", "Application not found");
-      if (app.listing.hostId !== req.user.id && req.user.role !== "admin") {
+      if (app.listing.hostId !== req.user.id && !isAdminLevel(req.user.role)) {
         throw new HttpError(
           403,
           "FORBIDDEN",
@@ -193,29 +208,44 @@ export const rejectApplication = asyncHandler(async (req, res) => {
 
   const app = await prisma.application.findUnique({
     where: { id: applicationId },
-    include: { listing: { select: { hostId: true } } }
+    include: { listing: { select: { id: true, hostId: true } } }
   });
   if (!app) throw new HttpError(404, "NOT_FOUND", "Application not found");
-  if (app.listing.hostId !== req.user.id && req.user.role !== "admin") {
+  if (app.listing.hostId !== req.user.id && !isAdminLevel(req.user.role)) {
     throw new HttpError(
       403,
       "FORBIDDEN",
       "Only the listing host or an admin may reject applications"
     );
   }
-  if (app.status !== "pending") {
-    throw new HttpError(
-      409,
-      "INVALID_STATE",
-      `Application is already ${app.status}`
-    );
+
+  if (app.status === "rejected") {
+    return res.json({ message: "Application already rejected", item: app });
   }
 
-  const item = await prisma.application.update({
-    where: { id: applicationId },
-    data: { status: "rejected" }
-  });
-  return res.json({ message: "Application rejected", item });
+  if (app.status === "accepted") {
+    // If we reject an already accepted application, we must revert the room counts
+    await prisma.$transaction([
+      prisma.listing.update({
+        where: { id: app.listing.id },
+        data: {
+          availableRooms: { increment: 1 },
+          currentOccupants: { decrement: 1 }
+        }
+      }),
+      prisma.application.update({
+        where: { id: applicationId },
+        data: { status: "rejected" }
+      })
+    ]);
+  } else {
+    await prisma.application.update({
+      where: { id: applicationId },
+      data: { status: "rejected" }
+    });
+  }
+
+  return res.json({ message: "Application rejected" });
 });
 
 export const withdrawApplication = asyncHandler(async (req, res) => {
@@ -224,23 +254,44 @@ export const withdrawApplication = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: "Invalid application id" });
   }
 
-  const application = await prisma.application.findUnique({
+  const app = await prisma.application.findUnique({
     where: { id: applicationId },
-    select: { id: true, seekerId: true }
+    select: { id: true, seekerId: true, status: true, listingId: true }
   });
 
-  if (!application) {
+  if (!app) {
     return res.status(404).json({ message: "Application not found" });
   }
 
-  if (req.user.role !== "admin" && application.seekerId !== req.user.id) {
+  if (!isAdminLevel(req.user.role) && app.seekerId !== req.user.id) {
     return res.status(403).json({ message: "Not allowed to withdraw this application" });
   }
 
-  const item = await prisma.application.update({
-    where: { id: applicationId },
-    data: { status: "withdrawn" }
-  });
+  if (app.status === "withdrawn") {
+    return res.json({ message: "Application already withdrawn", item: app });
+  }
 
-  return res.json({ message: "Application withdrawn", item });
+  if (app.status === "accepted") {
+    // If we withdraw an already accepted application, we must revert the room counts
+    await prisma.$transaction([
+      prisma.listing.update({
+        where: { id: app.listingId },
+        data: {
+          availableRooms: { increment: 1 },
+          currentOccupants: { decrement: 1 }
+        }
+      }),
+      prisma.application.update({
+        where: { id: applicationId },
+        data: { status: "withdrawn" }
+      })
+    ]);
+  } else {
+    await prisma.application.update({
+      where: { id: applicationId },
+      data: { status: "withdrawn" }
+    });
+  }
+
+  return res.json({ message: "Application withdrawn" });
 });

@@ -19,6 +19,7 @@ import AdminDashboardPage from "../pages/AdminDashboardPage";
 import AdminUsersPage from "../pages/AdminUsersPage";
 import AdminListingsPage from "../pages/AdminListingsPage";
 import AdminVerificationsPage from "../pages/AdminVerificationsPage";
+import AdminCitiesPage from "../pages/AdminCitiesPage";
 import AboutPage from "../pages/AboutPage";
 import BlogPage from "../pages/BlogPage";
 import ContactPage from "../pages/ContactPage";
@@ -64,7 +65,7 @@ export default function AppRoutes() {
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
 
-      <Route element={<RoleRoute allowedRoles={["host", "admin"]} />}>
+      <Route element={<RoleRoute allowedRoles={["host", "admin", "super_admin"]} />}>
         <Route path="/my-listings" element={<MyListingsPage />} />
         <Route path="/listings/new" element={<ListingFormPage />} />
         <Route path="/listings/:id/edit" element={<ListingFormPage />} />
@@ -74,11 +75,15 @@ export default function AppRoutes() {
         />
       </Route>
 
-      <Route element={<RoleRoute allowedRoles={["admin"]} />}>
+      <Route element={<RoleRoute allowedRoles={["admin", "super_admin"]} />}>
         <Route path="/admin" element={<AdminDashboardPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/listings" element={<AdminListingsPage />} />
         <Route path="/admin/verifications" element={<AdminVerificationsPage />} />
+      </Route>
+
+      <Route element={<RoleRoute allowedRoles={["super_admin"]} />}>
+        <Route path="/admin/cities" element={<AdminCitiesPage />} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />

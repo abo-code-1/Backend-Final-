@@ -48,6 +48,41 @@ export const changePasswordSchema = z.object({
   newPassword: passwordSchema
 });
 
+export const switchRoleSchema = z.object({
+  role: z.enum(["seeker", "host"])
+});
+
+const citySlugSchema = z
+  .string()
+  .min(2, "Slug is too short")
+  .max(50, "Slug is too long")
+  .regex(
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+    "Slug must be lowercase latin letters, digits and hyphens"
+  );
+
+export const cityCreateSchema = z.object({
+  slug: citySlugSchema,
+  nameRu: z.string().min(2, "Name is too short").max(80),
+  nameKk: z.string().max(80).optional(),
+  imageUrl: z.string().url("Image must be a valid URL").or(z.literal("")).optional(),
+  isActive: z.boolean().optional(),
+  sortOrder: z.number().int().optional()
+});
+
+export const cityUpdateSchema = z
+  .object({
+    slug: citySlugSchema.optional(),
+    nameRu: z.string().min(2, "Name is too short").max(80).optional(),
+    nameKk: z.string().max(80).or(z.literal("")).optional(),
+    imageUrl: z.string().url("Image must be a valid URL").or(z.literal("")).optional(),
+    isActive: z.boolean().optional(),
+    sortOrder: z.number().int().optional()
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "At least one field must be provided"
+  });
+
 export const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(1, "Password is required")

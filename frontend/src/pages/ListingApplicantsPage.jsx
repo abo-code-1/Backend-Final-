@@ -17,6 +17,7 @@ import ConfirmModal from "../components/common/ConfirmModal";
 import PageHeader from "../components/common/PageHeader";
 import EmptyState from "../components/common/EmptyState";
 import { PageSpinner } from "../components/common/Spinner";
+import Pagination from "../components/common/Pagination";
 
 const STATUS = {
   pending: { label: "На рассмотрении", variant: "warning", icon: Clock },
@@ -32,23 +33,39 @@ export default function ListingApplicantsPage() {
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState(null);
   const [pendingReject, setPendingReject] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await apiClient.get(`/listings/${id}/applications`);
+      const { data } = await apiClient.get(`/listings/${id}/applications`, {
+        params: { page, limit: pageSize },
+      });
+      const meta = data.pagination || { page: 1, totalPages: 1, total: 0 };
+      if (meta.totalPages > 0 && page > meta.totalPages) {
+        setPage(meta.totalPages);
+        return;
+      }
       setListing(data.listing || null);
       setItems(data.items || []);
+      setPagination(meta);
     } catch (e) {
       toast.error(e.response?.data?.message || "Не удалось загрузить заявки");
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, page, pageSize]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const changePageSize = (n) => {
+    setPageSize(n);
+    setPage(1);
+  };
 
   const accept = async (applicationId) => {
     setActingId(applicationId);
@@ -197,6 +214,16 @@ export default function ListingApplicantsPage() {
               );
             })}
           </div>
+        )}
+
+        {!loading && items.length > 0 && (
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            onChange={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={changePageSize}
+          />
         )}
       </div>
 

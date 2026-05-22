@@ -20,12 +20,7 @@ import Button from "../components/common/Button";
 import ListingCard from "../components/listings/ListingCard";
 import ListingSkeleton from "../components/listings/ListingSkeleton";
 import { cn } from "../utils/cn";
-
-const CITIES = [
-  { value: "almaty", label: "Алматы", img: "https://images.unsplash.com/photo-1594823976738-35aefcc1c87a?auto=format&fit=crop&w=800&q=60" },
-  { value: "astana", label: "Астана", img: "https://images.unsplash.com/photo-1564509370334-5b6b81f1f9cc?auto=format&fit=crop&w=800&q=60" },
-  { value: "shymkent", label: "Шымкент", img: "https://images.unsplash.com/photo-1564501049412-61c2a3083791?auto=format&fit=crop&w=800&q=60" },
-];
+import { useCities } from "../hooks/useCities";
 
 const CATEGORIES = [
   { key: "all", label: "Все", icon: "🏠" },
@@ -64,6 +59,7 @@ const TESTIMONIALS = [
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const { cities } = useCities();
   const [activeCity, setActiveCity] = useState("almaty");
 
   const { data, isLoading } = useQuery({
@@ -123,7 +119,7 @@ export default function HomePage() {
                   onChange={(e) => setActiveCity(e.target.value)}
                   className="flex-1 h-12 px-4 rounded-xl bg-muted/60 text-sm font-medium outline-none"
                 >
-                  {CITIES.map((c) => (
+                  {cities.map((c) => (
                     <option key={c.value} value={c.value}>
                       {c.label}
                     </option>
@@ -225,7 +221,7 @@ export default function HomePage() {
         </div>
 
         <div className="flex gap-2 mb-6">
-          {CITIES.map((c) => (
+          {cities.map((c) => (
             <button
               key={c.value}
               onClick={() => setActiveCity(c.value)}
@@ -266,7 +262,7 @@ export default function HomePage() {
           Выберите свой город
         </h2>
         <div className="grid md:grid-cols-3 gap-5">
-          {CITIES.map((c) => (
+          {cities.map((c) => (
             <Link
               to={`/listings?city=${c.value}`}
               key={c.value}

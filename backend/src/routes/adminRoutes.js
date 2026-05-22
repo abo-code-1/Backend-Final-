@@ -14,7 +14,7 @@ import {
 
 const adminRouter = Router();
 
-adminRouter.use(requireAuth, requireRoles("admin"));
+adminRouter.use(requireAuth, requireRoles("admin", "super_admin"));
 
 adminRouter.get("/stats", getAdminStats);
 adminRouter.get("/users", getAdminUsers);

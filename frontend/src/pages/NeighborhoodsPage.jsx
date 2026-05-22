@@ -4,6 +4,7 @@ import { MapPin, TrendingUp, Search } from "lucide-react";
 import Input from "../components/common/Input";
 import PageHeader from "../components/common/PageHeader";
 import { cn } from "../utils/cn";
+import { useCities } from "../hooks/useCities";
 
 const NEIGHBORHOODS = [
   {
@@ -62,16 +63,14 @@ const NEIGHBORHOODS = [
   },
 ];
 
-const CITY_TABS = [
-  { key: "all", label: "Все" },
-  { key: "almaty", label: "Алматы" },
-  { key: "astana", label: "Астана" },
-  { key: "shymkent", label: "Шымкент" },
-];
-
 export default function NeighborhoodsPage() {
   const [tab, setTab] = useState("all");
   const [q, setQ] = useState("");
+  const { cities, cityLabel } = useCities();
+  const cityTabs = [
+    { key: "all", label: "Все" },
+    ...cities.map((c) => ({ key: c.value, label: c.label })),
+  ];
 
   const filtered = NEIGHBORHOODS.filter(
     (n) =>
@@ -89,7 +88,7 @@ export default function NeighborhoodsPage() {
 
       <div className="mt-8 flex flex-col md:flex-row gap-3 justify-between">
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
-          {CITY_TABS.map((t) => (
+          {cityTabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
@@ -169,11 +168,5 @@ export default function NeighborhoodsPage() {
         )}
       </div>
     </div>
-  );
-}
-
-function cityLabel(c) {
-  return (
-    { almaty: "Алматы", astana: "Астана", shymkent: "Шымкент" }[c] || c
   );
 }

@@ -1,13 +1,21 @@
 import { prisma } from "../config/db.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { parsePagination, buildPaginationMeta } from "../utils/pagination.js";
 
 export const getSavedSearches = asyncHandler(async (req, res) => {
-  const items = await prisma.savedSearch.findMany({
-    where: { userId: req.user.id },
-    orderBy: { createdAt: "desc" }
-  });
+  const { skip, take, page, limit } = parsePagination(req.query);
+  const where = { userId: req.user.id };
+  const [items, total] = await Promise.all([
+    prisma.savedSearch.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take
+    }),
+    prisma.savedSearch.count({ where })
+  ]);
 
-  return res.json({ items });
+  return res.json({ items, pagination: buildPaginationMeta({ page, limit, total }) });
 });
 
 export const createSavedSearch = asyncHandler(async (req, res) => {
