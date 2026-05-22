@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
-import { Ban, ShieldCheck } from "lucide-react";
+import { Ban, ShieldCheck, Trash2 } from "lucide-react";
 import { apiClient } from "../api/client";
 import { isSuperAdmin } from "../utils/roles";
 import Button from "../components/common/Button";
@@ -14,10 +14,12 @@ import Pagination from "../components/common/Pagination";
 
 export default function AdminUsersPage() {
   const myRole = useSelector((s) => s.auth.role);
+  const myId = useSelector((s) => s.auth.user?.id);
   const canManageAdmins = isSuperAdmin(myRole);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pendingBan, setPendingBan] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -65,6 +67,18 @@ export default function AdminUsersPage() {
       load();
     } catch (e) {
       toast.error(e.response?.data?.message || "Не удалось");
+    }
+  };
+
+  const doDelete = async () => {
+    if (!pendingDelete) return;
+    try {
+      await apiClient.delete(`/admin/users/${pendingDelete.id}`);
+      toast.success("Аккаунт удалён");
+      setPendingDelete(null);
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Не удалось удалить");
     }
   };
 
@@ -155,15 +169,30 @@ export default function AdminUsersPage() {
                       </Badge>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <Button
-                      size="sm"
-                      variant={u.isBanned ? "primary" : "outline"}
-                      className={!u.isBanned ? "text-destructive" : ""}
-                      onClick={() => setPendingBan(u)}
-                    >
-                      {u.isBanned ? "Разблокировать" : "Заблокировать"}
-                    </Button>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant={u.isBanned ? "primary" : "outline"}
+                        className={!u.isBanned ? "text-destructive" : ""}
+                        onClick={() => setPendingBan(u)}
+                      >
+                        {u.isBanned ? "Разблокировать" : "Заблокировать"}
+                      </Button>
+                      {/* Deleting is super-admin only and never on your own row. */}
+                      {canManageAdmins && u.id !== myId && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive"
+                          onClick={() => setPendingDelete(u)}
+                          aria-label={`Удалить ${u.fullName}`}
+                          title="Удалить аккаунт"
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -204,6 +233,20 @@ export default function AdminUsersPage() {
         cancelText="Отмена"
         onCancel={() => setPendingBan(null)}
         onConfirm={doBan}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(pendingDelete)}
+        title="Удалить аккаунт?"
+        description={
+          pendingDelete
+            ? `${pendingDelete.fullName} (${pendingDelete.email}) и все связанные данные (объявления, отклики, отзывы) будут удалены безвозвратно.`
+            : ""
+        }
+        confirmText="Удалить навсегда"
+        cancelText="Отмена"
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={doDelete}
       />
     </div>
   );

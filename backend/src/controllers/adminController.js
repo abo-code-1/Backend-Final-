@@ -128,6 +128,30 @@ export const setUserRole = asyncHandler(async (req, res) => {
   return res.json({ message: "User role updated", item });
 });
 
+export const deleteUser = asyncHandler(async (req, res) => {
+  const userId = parseId(req.params.id);
+  if (!userId) return res.status(400).json({ message: "Invalid user id" });
+
+  if (userId === req.user.id) {
+    return res.status(400).json({ message: "You cannot delete your own account" });
+  }
+
+  const target = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, fullName: true, email: true, role: true }
+  });
+  if (!target) return res.status(404).json({ message: "User not found" });
+
+  // Hard delete. Every user-owned relation (listings, applications, favorites,
+  // reviews, saved searches, verifications, tokens, lifestyle) is ON DELETE
+  // CASCADE in the schema, so this removes the account and all its data.
+  await prisma.user.delete({ where: { id: userId } });
+  return res.json({
+    message: "User deleted",
+    item: { id: target.id, fullName: target.fullName, email: target.email }
+  });
+});
+
 export const getPendingListings = asyncHandler(async (req, res) => {
   const { skip, take, page, limit } = parsePagination(req.query);
   const where = { isApproved: false };
