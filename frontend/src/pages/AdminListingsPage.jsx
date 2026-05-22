@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Check, X, ExternalLink } from "lucide-react";
@@ -7,26 +7,43 @@ import Button from "../components/common/Button";
 import PageHeader from "../components/common/PageHeader";
 import EmptyState from "../components/common/EmptyState";
 import { PageSpinner } from "../components/common/Spinner";
+import Pagination from "../components/common/Pagination";
 
 export default function AdminListingsPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await apiClient.get("/admin/listings/pending");
+      const { data } = await apiClient.get("/admin/listings/pending", {
+        params: { page, limit: pageSize },
+      });
+      const meta = data.pagination || { page: 1, totalPages: 1, total: 0 };
+      if (meta.totalPages > 0 && page > meta.totalPages) {
+        setPage(meta.totalPages);
+        return;
+      }
       setItems(data.items || []);
+      setPagination(meta);
     } catch (e) {
       toast.error(e.response?.data?.message || "Не удалось загрузить");
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+
+  const changePageSize = (n) => {
+    setPageSize(n);
+    setPage(1);
+  };
 
   const moderate = async (id, approved) => {
     try {
@@ -107,6 +124,16 @@ export default function AdminListingsPage() {
               </div>
             ))}
           </div>
+        )}
+
+        {!loading && items.length > 0 && (
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            onChange={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={changePageSize}
+          />
         )}
       </div>
     </div>

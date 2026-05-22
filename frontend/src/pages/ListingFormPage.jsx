@@ -10,6 +10,7 @@ import Checkbox from "../components/common/Checkbox";
 import Textarea from "../components/common/Textarea";
 import PageHeader from "../components/common/PageHeader";
 import { PageSpinner } from "../components/common/Spinner";
+import { useCities } from "../hooks/useCities";
 
 const emptyBill = {
   category: "utilities",
@@ -18,12 +19,6 @@ const emptyBill = {
   isIncludedInRent: false,
   notes: "",
 };
-
-const CITY_OPTIONS = [
-  { label: "Алматы", value: "almaty" },
-  { label: "Астана", value: "astana" },
-  { label: "Шымкент", value: "shymkent" },
-];
 
 const STATUS_OPTIONS = [
   { label: "Черновик", value: "draft" },
@@ -43,6 +38,7 @@ export default function ListingFormPage() {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const { cityOptions } = useCities();
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -222,7 +218,7 @@ export default function ListingFormPage() {
               label="Город"
               value={form.city}
               onChange={(e) => setField({ city: e.target.value })}
-              options={CITY_OPTIONS}
+              options={cityOptions}
             />
             <Input
               label="Район"

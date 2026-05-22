@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../store/authSlice";
 import { cn } from "../../utils/cn";
+import { isAdminRole, isSuperAdmin, canHostListings } from "../../utils/roles";
 import {
   Search,
   Menu,
@@ -14,6 +15,7 @@ import {
   Plus,
   Home as HomeIcon,
   LayoutDashboard,
+  MapPin,
   Settings,
   Inbox,
   Shield,
@@ -139,14 +141,17 @@ function UserMenu() {
               <MenuLink to="/favorites" icon={Heart} label="Избранное" />
               <MenuLink to="/profile" icon={User} label="Профиль" />
               <MenuDivider />
-              {(role === "host" || role === "admin") && (
+              {canHostListings(role) && (
                 <>
                   <MenuLink to="/listings/new" icon={Plus} label="Разместить жилье" bold />
                   <MenuLink to="/my-listings" icon={HomeIcon} label="Мои объявления" />
                 </>
               )}
-              {role === "admin" && (
+              {isAdminRole(role) && (
                 <MenuLink to="/admin" icon={LayoutDashboard} label="Админ-панель" />
+              )}
+              {isSuperAdmin(role) && (
+                <MenuLink to="/admin/cities" icon={MapPin} label="Города" />
               )}
               <MenuLink to="/settings" icon={Settings} label="Настройки" />
               <MenuLink to="/help" icon={HelpCircle} label="Помощь" />
@@ -197,14 +202,14 @@ function Header() {
           <HeaderLink to="/neighborhoods" label="Районы" />
           <HeaderLink to="/bill-split" label="Калькулятор" />
           <HeaderLink to="/how-it-works" label="Как это работает" />
-          {(role === "host" || role === "admin") && (
+          {canHostListings(role) && (
             <HeaderLink to="/my-listings" label="Мои объявления" />
           )}
         </nav>
 
         <div className="flex items-center gap-2">
           <QuickSearchBar />
-          {(!token || role === "host" || role === "admin") && (
+          {(!token || canHostListings(role)) && (
             <Link
               to={token ? "/listings/new" : "/register"}
               className="hidden md:inline-flex items-center text-sm font-semibold px-3 h-10 rounded-full hover:bg-muted transition-colors"

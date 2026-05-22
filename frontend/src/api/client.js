@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050/api";
 
 const ACCESS_KEY = "roomie_token";
 const REFRESH_KEY = "roomie_refresh";

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCities } from "../hooks/useCities";
 import { toast } from "react-toastify";
 import {
   MapPin,
@@ -38,6 +39,7 @@ const FALLBACKS = [
 export default function ListingDetailsPage() {
   const { id } = useParams();
   const queryClient = useQueryClient();
+  const { cityLabel } = useCities();
   const navigate = useNavigate();
   const { token } = useSelector((s) => s.auth);
   const [message, setMessage] = useState("");
@@ -490,11 +492,5 @@ function Row({ label, value, muted }) {
       <span>{label}</span>
       <span>{value}</span>
     </div>
-  );
-}
-
-function cityLabel(city) {
-  return (
-    { almaty: "Алматы", astana: "Астана", shymkent: "Шымкент" }[city] || city
   );
 }

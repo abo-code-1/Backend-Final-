@@ -1,12 +1,7 @@
 import { Link } from "react-router-dom";
 import { Heart, Star, ShieldCheck, MapPin } from "lucide-react";
 import { cn } from "../../utils/cn";
-
-const CITY_LABELS = {
-  almaty: "Алматы",
-  astana: "Астана",
-  shymkent: "Шымкент",
-};
+import { useCities } from "../../hooks/useCities";
 
 const FALLBACK =
   "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80";
@@ -18,8 +13,9 @@ export default function ListingCard({
   compact = false,
   showHeart = true,
 }) {
+  const { cityLabel } = useCities();
   const photo = listing.photos?.[0] || FALLBACK;
-  const cityLabel = CITY_LABELS[listing.city] || listing.city;
+  const cityLabelText = cityLabel(listing.city);
 
   return (
     <Link
@@ -83,7 +79,7 @@ export default function ListingCard({
         <p className="text-sm text-muted-foreground line-clamp-1 flex items-center gap-1">
           <MapPin size={13} />
           {listing.district ? `${listing.district}, ` : ""}
-          {cityLabel}
+          {cityLabelText}
         </p>
 
         <p className="text-sm text-muted-foreground">

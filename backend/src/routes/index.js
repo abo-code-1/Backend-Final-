@@ -6,6 +6,7 @@ import savedSearchRouter from "./savedSearchRoutes.js";
 import favoriteRouter from "./favoriteRoutes.js";
 import applicationRouter from "./applicationRoutes.js";
 import adminRouter from "./adminRoutes.js";
+import cityRouter from "./cityRoutes.js";
 
 const apiRouter = Router();
 
@@ -16,5 +17,6 @@ apiRouter.use("/", savedSearchRouter);
 apiRouter.use("/", favoriteRouter);
 apiRouter.use("/", applicationRouter);
 apiRouter.use("/admin", adminRouter);
+apiRouter.use("/cities", cityRouter);
 
 export default apiRouter;

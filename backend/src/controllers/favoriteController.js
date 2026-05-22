@@ -1,5 +1,6 @@
 import { prisma } from "../config/db.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { parsePagination, buildPaginationMeta } from "../utils/pagination.js";
 
 const parseId = (value) => {
   const parsed = Number.parseInt(value, 10);
@@ -7,26 +8,33 @@ const parseId = (value) => {
 };
 
 export const getFavorites = asyncHandler(async (req, res) => {
-  const items = await prisma.favorite.findMany({
-    where: { userId: req.user.id },
-    include: {
-      listing: {
-        include: {
-          host: {
-            select: {
-              id: true,
-              fullName: true,
-              isPhoneVerified: true,
-              isIdVerified: true
+  const { skip, take, page, limit } = parsePagination(req.query);
+  const where = { userId: req.user.id };
+  const [items, total] = await Promise.all([
+    prisma.favorite.findMany({
+      where,
+      include: {
+        listing: {
+          include: {
+            host: {
+              select: {
+                id: true,
+                fullName: true,
+                isPhoneVerified: true,
+                isIdVerified: true
+              }
             }
           }
         }
-      }
-    },
-    orderBy: { id: "desc" }
-  });
+      },
+      orderBy: { id: "desc" },
+      skip,
+      take
+    }),
+    prisma.favorite.count({ where })
+  ]);
 
-  return res.json({ items });
+  return res.json({ items, pagination: buildPaginationMeta({ page, limit, total }) });
 });
 
 export const checkFavorite = asyncHandler(async (req, res) => {

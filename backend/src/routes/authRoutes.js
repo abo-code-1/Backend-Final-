@@ -14,7 +14,7 @@ import {
   verifyEmailCode
 } from "../controllers/emailVerificationController.js";
 import { requireAuth } from "../middleware/auth.js";
-import { authRateLimiter } from "../middleware/rateLimit.js";
+import { authRateLimiter, emailRateLimiter } from "../middleware/rateLimit.js";
 
 const authRouter = Router();
 
@@ -33,7 +33,7 @@ authRouter.post(
 authRouter.patch("/switch-role", requireAuth, switchRole);
 // Public: a freshly-registered user may not be logged in, so these can't
 // require auth. They take the email in the body and flip isEmailVerified.
-authRouter.post("/email/request-code", authRateLimiter, requestEmailCode);
-authRouter.post("/email/verify", authRateLimiter, verifyEmailCode);
+authRouter.post("/email/request-code", emailRateLimiter, requestEmailCode);
+authRouter.post("/email/verify", emailRateLimiter, verifyEmailCode);
 
 export default authRouter;

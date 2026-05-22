@@ -2,6 +2,8 @@ import prismaPkg from "@prisma/client";
 import { prisma } from "../config/db.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { listingSchema } from "../validators/zodSchemas.js";
+import { parsePagination, buildPaginationMeta } from "../utils/pagination.js";
+import { isAdminLevel } from "../utils/roles.js";
 
 const { Prisma } = prismaPkg;
 
@@ -40,10 +42,10 @@ const listingInclude = {
 };
 
 const ensureHostOrAdmin = (user) =>
-  user && (user.role === "host" || user.role === "admin");
+  user && (user.role === "host" || isAdminLevel(user.role));
 
 const canAccessListingMutation = (user, listingHostId) =>
-  user.role === "admin" || user.id === listingHostId;
+  isAdminLevel(user.role) || user.id === listingHostId;
 
 export const getListings = asyncHandler(async (req, res) => {
   const {
@@ -189,13 +191,20 @@ export const getMyListings = asyncHandler(async (req, res) => {
     return res.status(403).json({ message: "Only host/admin can view own listings" });
   }
 
-  const items = await prisma.listing.findMany({
-    where: req.user.role === "admin" ? undefined : { hostId: req.user.id },
-    include: listingInclude,
-    orderBy: { createdAt: "desc" }
-  });
+  const where = isAdminLevel(req.user.role) ? undefined : { hostId: req.user.id };
+  const { skip, take, page, limit } = parsePagination(req.query);
+  const [items, total] = await Promise.all([
+    prisma.listing.findMany({
+      where,
+      include: listingInclude,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take
+    }),
+    prisma.listing.count({ where })
+  ]);
 
-  return res.json({ items });
+  return res.json({ items, pagination: buildPaginationMeta({ page, limit, total }) });
 });
 
 export const createListing = asyncHandler(async (req, res) => {
@@ -312,7 +321,7 @@ export const updateListing = asyncHandler(async (req, res) => {
 
   if (data.monthlyRent !== undefined) data.monthlyRent = new Prisma.Decimal(data.monthlyRent);
   if (data.deposit !== undefined) data.deposit = new Prisma.Decimal(data.deposit);
-  if (data.isApproved !== undefined && req.user.role !== "admin") delete data.isApproved;
+  if (data.isApproved !== undefined && !isAdminLevel(req.user.role)) delete data.isApproved;
   if (data.hostId !== undefined) delete data.hostId;
 
   const updated = await prisma.$transaction(async (tx) => {

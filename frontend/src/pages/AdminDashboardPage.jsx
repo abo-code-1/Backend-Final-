@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { Link } from "react-router-dom";
+import { isSuperAdmin } from "../utils/roles";
 import {
   Users,
   Home as HomeIcon,
@@ -28,7 +30,12 @@ const QUICK_LINKS = [
 ];
 
 export default function AdminDashboardPage() {
+  const myRole = useSelector((s) => s.auth.role);
   const [stats, setStats] = useState(null);
+
+  const quickLinks = isSuperAdmin(myRole)
+    ? [...QUICK_LINKS, { to: "/admin/cities", label: "Управление городами" }]
+    : QUICK_LINKS;
 
   useEffect(() => {
     (async () => {
@@ -66,7 +73,7 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="mt-10 grid md:grid-cols-3 gap-4">
-        {QUICK_LINKS.map((l) => (
+        {quickLinks.map((l) => (
           <Link
             key={l.to}
             to={l.to}

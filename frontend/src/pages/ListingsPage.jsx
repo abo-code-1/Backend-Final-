@@ -3,14 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Search,
-  SlidersHorizontal,
-  ChevronLeft,
-  ChevronRight,
-  X,
-  MapPin,
-} from "lucide-react";
+import { Search, SlidersHorizontal, X, MapPin } from "lucide-react";
 import { useSelector } from "react-redux";
 import { apiClient } from "../api/client";
 import Button from "../components/common/Button";
@@ -20,14 +13,8 @@ import Checkbox from "../components/common/Checkbox";
 import ListingCard from "../components/listings/ListingCard";
 import ListingSkeleton from "../components/listings/ListingSkeleton";
 import EmptyState from "../components/common/EmptyState";
-import { cn } from "../utils/cn";
-
-const CITY_OPTIONS = [
-  { label: "Все города", value: "" },
-  { label: "Алматы", value: "almaty" },
-  { label: "Астана", value: "astana" },
-  { label: "Шымкент", value: "shymkent" },
-];
+import Pagination from "../components/common/Pagination";
+import { useCities } from "../hooks/useCities";
 
 const SORT_OPTIONS = [
   { label: "Сначала новые", value: "newest" },
@@ -285,6 +272,7 @@ export default function ListingsPage() {
 }
 
 function FiltersPanel({ filters, onChange, onClear }) {
+  const { cityOptions } = useCities({ includeAll: true });
   return (
     <div className="rounded-2xl border p-5 space-y-5 bg-card">
       <div className="flex items-center justify-between">
@@ -301,7 +289,7 @@ function FiltersPanel({ filters, onChange, onClear }) {
         label="Город"
         value={filters.city}
         onChange={(e) => onChange({ city: e.target.value })}
-        options={CITY_OPTIONS}
+        options={cityOptions}
       />
 
       <Input
@@ -366,57 +354,6 @@ function FiltersPanel({ filters, onChange, onClear }) {
           />
         </div>
       </div>
-    </div>
-  );
-}
-
-function Pagination({ page, totalPages, onChange }) {
-  const nums = [];
-  for (let i = 1; i <= totalPages; i++) {
-    if (i === 1 || i === totalPages || (i >= page - 1 && i <= page + 1)) {
-      nums.push(i);
-    } else if (i === page - 2 || i === page + 2) {
-      nums.push("…");
-    }
-  }
-  const clean = nums.filter((n, idx, arr) => n !== arr[idx - 1]);
-
-  return (
-    <div className="flex items-center justify-center gap-2 mt-14">
-      <button
-        disabled={page <= 1}
-        onClick={() => onChange(page - 1)}
-        className="h-10 w-10 rounded-full border flex items-center justify-center disabled:opacity-40 hover:bg-muted"
-      >
-        <ChevronLeft size={16} />
-      </button>
-      {clean.map((n, i) =>
-        n === "…" ? (
-          <span key={`e-${i}`} className="px-2 text-muted-foreground">
-            …
-          </span>
-        ) : (
-          <button
-            key={n}
-            onClick={() => onChange(n)}
-            className={cn(
-              "h-10 w-10 rounded-full text-sm font-semibold transition-colors",
-              n === page
-                ? "bg-foreground text-background"
-                : "hover:bg-muted"
-            )}
-          >
-            {n}
-          </button>
-        )
-      )}
-      <button
-        disabled={page >= totalPages}
-        onClick={() => onChange(page + 1)}
-        className="h-10 w-10 rounded-full border flex items-center justify-center disabled:opacity-40 hover:bg-muted"
-      >
-        <ChevronRight size={16} />
-      </button>
     </div>
   );
 }

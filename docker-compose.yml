@@ -31,6 +31,10 @@ services:
     env_file:
       - .env
     environment:
+      # Pin the in-container listen port to 5000 so it's decoupled from the
+      # root .env PORT (which is 5050 for local non-Docker runs). The host
+      # mapping below exposes it on BACKEND_PORT.
+      PORT: 5000
       CLIENT_URL: ${CLIENT_URL:-http://localhost:${FRONTEND_PORT:-5173}}
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
     ports:

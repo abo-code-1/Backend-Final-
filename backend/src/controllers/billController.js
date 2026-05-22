@@ -1,6 +1,7 @@
 import prismaPkg from "@prisma/client";
 import { prisma } from "../config/db.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { isAdminLevel } from "../utils/roles.js";
 
 const { Prisma } = prismaPkg;
 
@@ -9,7 +10,7 @@ const intOrUndefined = (value) => {
   return Number.isNaN(parsed) ? undefined : parsed;
 };
 
-const canMutate = (user, hostId) => user.role === "admin" || user.id === hostId;
+const canMutate = (user, hostId) => isAdminLevel(user.role) || user.id === hostId;
 
 export const getListingBills = asyncHandler(async (req, res) => {
   const listingId = intOrUndefined(req.params.listingId);
