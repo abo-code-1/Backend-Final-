@@ -42,6 +42,15 @@ export const errorHandler = (err, req, res, _next) => {
       .json(errorBody(err.code, err.message, { details: err.details }));
   }
 
+  if (err && err.name === "MulterError") {
+    const statusCode = err.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+    const message =
+      err.code === "LIMIT_FILE_SIZE"
+        ? "Файл слишком большой. Максимальный размер: 5 МБ"
+        : err.message;
+    return res.status(statusCode).json(errorBody(err.code, message));
+  }
+
   // Prisma known error codes
   if (err && err.code === "P2002") {
     return res

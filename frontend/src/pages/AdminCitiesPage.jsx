@@ -6,6 +6,7 @@ import { apiClient } from "../api/client";
 import Button from "../components/common/Button";
 import Badge from "../components/common/Badge";
 import Input from "../components/common/Input";
+import ImageUploadField from "../components/common/ImageUploadField";
 import ConfirmModal from "../components/common/ConfirmModal";
 import PageHeader from "../components/common/PageHeader";
 import { PageSpinner } from "../components/common/Spinner";
@@ -124,7 +125,7 @@ export default function AdminCitiesPage() {
 
       <form
         onSubmit={submit}
-        className="mt-6 rounded-2xl border p-5 bg-card grid gap-4 md:grid-cols-5 md:items-end"
+        className="mt-6 rounded-2xl border p-5 bg-card grid gap-4 md:grid-cols-6 md:items-end"
       >
         <Input
           label="Слаг (латиницей)"
@@ -139,12 +140,12 @@ export default function AdminCitiesPage() {
           value={form.nameRu}
           onChange={(e) => setField({ nameRu: e.target.value })}
         />
-        <Input
-          label="URL изображения"
-          placeholder="https://..."
-          value={form.imageUrl}
-          onChange={(e) => setField({ imageUrl: e.target.value })}
-        />
+        <div className="md:col-span-2 md:row-span-2">
+          <ImageUploadField
+            value={form.imageUrl}
+            onChange={(imageUrl) => setField({ imageUrl })}
+          />
+        </div>
         <Input
           label="Порядок"
           type="number"

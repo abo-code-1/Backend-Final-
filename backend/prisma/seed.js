@@ -296,6 +296,37 @@ const CITY_SEED = [
   { slug: "pavlodar", nameRu: "Павлодар", imageUrl: "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&w=800&q=60", sortOrder: 5 },
 ];
 
+const NEIGHBORHOOD_IMAGES = [
+  "https://images.unsplash.com/photo-1549893077-a3caa2f9b6c3?auto=format&fit=crop&w=800&q=60",
+  "https://images.unsplash.com/photo-1519121785383-3229633bb75b?auto=format&fit=crop&w=800&q=60",
+  "https://images.unsplash.com/photo-1519642918688-7e43b19245d8?auto=format&fit=crop&w=800&q=60",
+  "https://images.unsplash.com/photo-1549490349-8643362247b5?auto=format&fit=crop&w=800&q=60",
+  "https://images.unsplash.com/photo-1515263487990-61b07816b324?auto=format&fit=crop&w=800&q=60",
+  "https://images.unsplash.com/photo-1528901166007-3784c7dd3653?auto=format&fit=crop&w=800&q=60",
+];
+
+const NEIGHBORHOOD_TAGS = [
+  ["Транспорт", "Учёба", "Кафе"],
+  ["Парки", "Тишина", "Семьи"],
+  ["Центр", "Работа", "Метро"],
+  ["Новостройки", "Деловой", "ТЦ"],
+  ["Бюджетно", "Магазины", "Остановки"],
+];
+
+const NEIGHBORHOOD_SEED = Object.entries(CITY_DATA).flatMap(
+  ([citySlug, meta], cityIndex) =>
+    meta.districts.map((name, index) => ({
+      citySlug,
+      name,
+      description: `${name} район города ${CITY_LABEL_RU[citySlug]}: удобный доступ к транспорту, учёбе и повседневной инфраструктуре.`,
+      imageUrl: NEIGHBORHOOD_IMAGES[(cityIndex + index) % NEIGHBORHOOD_IMAGES.length],
+      priceLabel: `От ${Math.round(meta.rent[0] / 1000)} 000 ₸`,
+      trendLabel: `+${3 + ((cityIndex + index) % 8)}%`,
+      tags: NEIGHBORHOOD_TAGS[(cityIndex + index) % NEIGHBORHOOD_TAGS.length],
+      sortOrder: index + 1,
+    }))
+);
+
 const APPLICATION_MESSAGES = [
   "Здравствуйте! Я аккуратный и спокойный, готов заселиться в ближайший месяц.",
   "Добрый день! Очень понравился вариант. Можно узнать, свободна ли комната?",
@@ -328,10 +359,19 @@ async function main() {
   await prisma.listing.deleteMany();
   await prisma.lifestyleProfile.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.neighborhood.deleteMany();
   await prisma.city.deleteMany();
 
   // ----- Cities (super-admin-managed catalogue) ----------------------------
   await prisma.city.createMany({ data: CITY_SEED });
+  const cities = await prisma.city.findMany({ select: { id: true, slug: true } });
+  const cityBySlug = Object.fromEntries(cities.map((city) => [city.slug, city]));
+  await prisma.neighborhood.createMany({
+    data: NEIGHBORHOOD_SEED.map(({ citySlug, ...neighborhood }) => ({
+      ...neighborhood,
+      cityId: cityBySlug[citySlug].id,
+    })),
+  });
 
   // ----- Users -------------------------------------------------------------
   const HOST_COUNT = 14;

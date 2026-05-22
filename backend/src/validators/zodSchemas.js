@@ -83,6 +83,39 @@ export const cityUpdateSchema = z
     message: "At least one field must be provided"
   });
 
+const neighborhoodTagsSchema = z
+  .array(z.string().trim().min(1).max(32))
+  .max(8, "Use at most 8 tags")
+  .optional();
+
+export const neighborhoodCreateSchema = z.object({
+  cityId: z.number().int().positive(),
+  name: z.string().trim().min(2, "Name is too short").max(80),
+  description: z.string().trim().max(500).or(z.literal("")).optional(),
+  imageUrl: z.string().url("Image must be a valid URL").or(z.literal("")).optional(),
+  priceLabel: z.string().trim().max(80).or(z.literal("")).optional(),
+  trendLabel: z.string().trim().max(40).or(z.literal("")).optional(),
+  tags: neighborhoodTagsSchema,
+  isActive: z.boolean().optional(),
+  sortOrder: z.number().int().optional()
+});
+
+export const neighborhoodUpdateSchema = z
+  .object({
+    cityId: z.number().int().positive().optional(),
+    name: z.string().trim().min(2, "Name is too short").max(80).optional(),
+    description: z.string().trim().max(500).or(z.literal("")).optional(),
+    imageUrl: z.string().url("Image must be a valid URL").or(z.literal("")).optional(),
+    priceLabel: z.string().trim().max(80).or(z.literal("")).optional(),
+    trendLabel: z.string().trim().max(40).or(z.literal("")).optional(),
+    tags: neighborhoodTagsSchema,
+    isActive: z.boolean().optional(),
+    sortOrder: z.number().int().optional()
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "At least one field must be provided"
+  });
+
 export const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(1, "Password is required")

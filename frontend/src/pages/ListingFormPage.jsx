@@ -11,6 +11,7 @@ import Textarea from "../components/common/Textarea";
 import PageHeader from "../components/common/PageHeader";
 import { PageSpinner } from "../components/common/Spinner";
 import { useCities } from "../hooks/useCities";
+import { useNeighborhoods } from "../hooks/useNeighborhoods";
 
 const emptyBill = {
   category: "utilities",
@@ -61,6 +62,21 @@ export default function ListingFormPage() {
     houseRulesText: "",
     bills: [{ ...emptyBill }],
   });
+  const { neighborhoods } = useNeighborhoods({ city: form.city });
+  const districtOptions = useMemo(() => {
+    const options = neighborhoods.map((n) => ({
+      key: `${n.citySlug}-${n.id || n.name}`,
+      label: n.name,
+      value: n.name,
+    }));
+    const hasCurrent =
+      !form.district || options.some((option) => option.value === form.district);
+    return [
+      { label: "Не выбран", value: "" },
+      ...(hasCurrent ? [] : [{ label: form.district, value: form.district }]),
+      ...options,
+    ];
+  }, [form.district, neighborhoods]);
 
   const title = useMemo(
     () => (isEdit ? "Редактирование объявления" : "Новое объявление"),
@@ -217,13 +233,14 @@ export default function ListingFormPage() {
             <Select
               label="Город"
               value={form.city}
-              onChange={(e) => setField({ city: e.target.value })}
+              onChange={(e) => setField({ city: e.target.value, district: "" })}
               options={cityOptions}
             />
-            <Input
+            <Select
               label="Район"
               value={form.district}
               onChange={(e) => setField({ district: e.target.value })}
+              options={districtOptions}
             />
             <Input
               label="Адрес"

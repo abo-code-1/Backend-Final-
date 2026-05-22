@@ -20,6 +20,7 @@ import AdminUsersPage from "../pages/AdminUsersPage";
 import AdminListingsPage from "../pages/AdminListingsPage";
 import AdminVerificationsPage from "../pages/AdminVerificationsPage";
 import AdminCitiesPage from "../pages/AdminCitiesPage";
+import AdminNeighborhoodsPage from "../pages/AdminNeighborhoodsPage";
 import AboutPage from "../pages/AboutPage";
 import BlogPage from "../pages/BlogPage";
 import ContactPage from "../pages/ContactPage";
@@ -84,6 +85,7 @@ export default function AppRoutes() {
 
       <Route element={<RoleRoute allowedRoles={["super_admin"]} />}>
         <Route path="/admin/cities" element={<AdminCitiesPage />} />
+        <Route path="/admin/neighborhoods" element={<AdminNeighborhoodsPage />} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />

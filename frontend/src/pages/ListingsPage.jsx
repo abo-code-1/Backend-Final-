@@ -15,6 +15,7 @@ import ListingSkeleton from "../components/listings/ListingSkeleton";
 import EmptyState from "../components/common/EmptyState";
 import Pagination from "../components/common/Pagination";
 import { useCities } from "../hooks/useCities";
+import { useNeighborhoods } from "../hooks/useNeighborhoods";
 
 const SORT_OPTIONS = [
   { label: "Сначала новые", value: "newest" },
@@ -273,6 +274,16 @@ export default function ListingsPage() {
 
 function FiltersPanel({ filters, onChange, onClear }) {
   const { cityOptions } = useCities({ includeAll: true });
+  const { neighborhoods } = useNeighborhoods({ city: filters.city });
+  const districtOptions = [
+    { label: "Все районы", value: "" },
+    ...neighborhoods.map((n) => ({
+      key: `${n.citySlug}-${n.id || n.name}`,
+      label: filters.city ? n.name : `${n.name} · ${n.cityName}`,
+      value: n.name,
+    })),
+  ];
+
   return (
     <div className="rounded-2xl border p-5 space-y-5 bg-card">
       <div className="flex items-center justify-between">
@@ -288,15 +299,15 @@ function FiltersPanel({ filters, onChange, onClear }) {
       <Select
         label="Город"
         value={filters.city}
-        onChange={(e) => onChange({ city: e.target.value })}
+        onChange={(e) => onChange({ city: e.target.value, district: "" })}
         options={cityOptions}
       />
 
-      <Input
+      <Select
         label="Район"
-        placeholder="Например, Медеуский"
         value={filters.district}
         onChange={(e) => onChange({ district: e.target.value })}
+        options={districtOptions}
       />
 
       <div>

@@ -27,8 +27,8 @@ const Select = forwardRef(function Select(
         }}
         {...props}
       >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
+        {options.map((opt, index) => (
+          <option key={opt.key || `${opt.value}-${index}`} value={opt.value}>
             {opt.label}
           </option>
         ))}
