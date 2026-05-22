@@ -15,6 +15,7 @@ import {
   Plus,
   Home as HomeIcon,
   LayoutDashboard,
+  Map as MapIcon,
   MapPin,
   Settings,
   Inbox,
@@ -151,7 +152,10 @@ function UserMenu() {
                 <MenuLink to="/admin" icon={LayoutDashboard} label="Админ-панель" />
               )}
               {isSuperAdmin(role) && (
-                <MenuLink to="/admin/cities" icon={MapPin} label="Города" />
+                <>
+                  <MenuLink to="/admin/cities" icon={MapPin} label="Города" />
+                  <MenuLink to="/admin/neighborhoods" icon={MapIcon} label="Районы" />
+                </>
               )}
               <MenuLink to="/settings" icon={Settings} label="Настройки" />
               <MenuLink to="/help" icon={HelpCircle} label="Помощь" />

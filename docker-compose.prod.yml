@@ -37,8 +37,16 @@ services:
       REFRESH_TOKEN_TTL: ${REFRESH_TOKEN_TTL:-7d}
       CLIENT_URL: ${CLIENT_URL}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
     expose:
       - "5000"
+    volumes:
+      - backend_uploads:/app/uploads
     logging:
       driver: json-file
       options:
@@ -60,3 +68,4 @@ services:
 
 volumes:
   postgres_data:
+  backend_uploads:

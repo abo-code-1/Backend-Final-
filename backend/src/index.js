@@ -7,14 +7,17 @@ import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
 import { env } from "./config/env.js";
 import { prisma } from "./config/db.js";
+import { ensureUploadDirs, uploadRoot } from "./config/uploads.js";
 import apiRouter from "./routes/index.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { globalRateLimiter } from "./middleware/rateLimit.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+ensureUploadDirs();
 
 app.disable("x-powered-by");
+app.set("trust proxy", 1);
 // CSP off: this is a JSON API plus a Swagger UI bundle that needs
 // `unsafe-eval` and inline styles. nginx adds frame/content sniffing headers
 // in front; helmet still ships the rest of its security headers.
@@ -33,6 +36,15 @@ app.use(
 // (otherwise the browser surfaces an opaque CORS/network error, not the 429).
 app.use(globalRateLimiter);
 app.use(express.json({ limit: "1mb" }));
+app.use(
+  "/uploads",
+  express.static(uploadRoot, {
+    maxAge: "30d",
+    setHeaders: (res) => {
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    }
+  })
+);
 
 // OpenAPI / Swagger UI
 try {

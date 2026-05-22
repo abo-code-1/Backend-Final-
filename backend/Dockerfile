@@ -32,6 +32,7 @@ COPY --from=build --chown=node:node /app/prisma ./prisma
 COPY --from=build --chown=node:node /app/src ./src
 COPY --from=build --chown=node:node /app/openapi.yaml ./openapi.yaml
 COPY --from=build --chown=node:node /app/package.json ./package.json
+RUN mkdir -p /app/uploads/images && chown -R node:node /app/uploads
 
 USER node
 EXPOSE 5000

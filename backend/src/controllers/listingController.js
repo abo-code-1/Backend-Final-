@@ -78,9 +78,17 @@ export const getListings = asyncHandler(async (req, res) => {
     cursor
   } = req.query;
 
+  const normalizedCity = typeof city === "string" ? city.trim() : city;
+  const normalizedDistrict =
+    typeof district === "string" ? district.trim() : district;
+
   const where = {
-    city: city ? { equals: city, mode: "insensitive" } : undefined,
-    district: district ? { equals: district, mode: "insensitive" } : undefined,
+    city: normalizedCity
+      ? { equals: normalizedCity, mode: "insensitive" }
+      : undefined,
+    district: normalizedDistrict
+      ? { contains: normalizedDistrict, mode: "insensitive" }
+      : undefined,
     monthlyRent: {
       gte: decimalOrUndefined(minPrice),
       lte: decimalOrUndefined(maxPrice)
@@ -270,6 +278,9 @@ export const createListing = asyncHandler(async (req, res) => {
       minStayMonths,
       photos: photos || [],
       status: status || "draft",
+      // Listings go live immediately instead of waiting on manual moderation;
+      // admins can still un-approve/archive via the moderation endpoint.
+      isApproved: true,
       bills: Array.isArray(bills) && bills.length
         ? {
             create: bills.map((bill) => ({

@@ -34,7 +34,11 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState(null);
 
   const quickLinks = isSuperAdmin(myRole)
-    ? [...QUICK_LINKS, { to: "/admin/cities", label: "Управление городами" }]
+    ? [
+        ...QUICK_LINKS,
+        { to: "/admin/cities", label: "Управление городами" },
+        { to: "/admin/neighborhoods", label: "Управление районами" },
+      ]
     : QUICK_LINKS;
 
   useEffect(() => {

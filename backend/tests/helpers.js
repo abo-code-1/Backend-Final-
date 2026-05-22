@@ -15,7 +15,9 @@ export const truncateAll = async () => {
       "reviews",
       "lifestyle_profiles",
       "listings",
-      "users"
+      "users",
+      "neighborhoods",
+      "cities"
     RESTART IDENTITY CASCADE
   `);
 };
