@@ -1,7 +1,9 @@
 import { prisma } from "../config/db.js";
+import { env } from "../config/env.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { parsePagination, buildPaginationMeta } from "../utils/pagination.js";
 import { isSuperAdmin, ELEVATED_ROLES } from "../utils/roles.js";
+import { enqueueEmail } from "../services/emailQueue.js";
 
 const parseId = (value) => {
   const parsed = Number.parseInt(value, 10);
@@ -182,8 +184,18 @@ export const moderateListing = asyncHandler(async (req, res) => {
     data: {
       isApproved: Boolean(approved),
       status: approved ? "active" : "archived"
-    }
+    },
+    include: { host: { select: { email: true, fullName: true } } }
   });
+
+  if (approved && item.host?.email) {
+    await enqueueEmail("listing_approved", item.host.email, {
+      hostName: item.host.fullName,
+      listingTitle: item.title,
+      listingUrl: `${env.clientUrl}/listings/${item.id}`
+    });
+  }
+
   return res.json({ message: "Listing moderation updated", item });
 });
 

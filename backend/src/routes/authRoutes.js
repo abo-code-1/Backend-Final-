@@ -1,11 +1,13 @@
 import { Router } from "express";
 import {
   changePassword,
+  forgotPassword,
   login,
   logout,
   me,
   refresh,
   register,
+  resetPassword,
   switchRole,
   updateProfile
 } from "../controllers/authController.js";
@@ -35,5 +37,8 @@ authRouter.patch("/switch-role", requireAuth, switchRole);
 // require auth. They take the email in the body and flip isEmailVerified.
 authRouter.post("/email/request-code", emailRateLimiter, requestEmailCode);
 authRouter.post("/email/verify", emailRateLimiter, verifyEmailCode);
+// Public password reset: request a link by email, then set a new password.
+authRouter.post("/forgot-password", emailRateLimiter, forgotPassword);
+authRouter.post("/reset-password", authRateLimiter, resetPassword);
 
 export default authRouter;

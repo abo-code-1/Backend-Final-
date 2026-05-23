@@ -1,0 +1,136 @@
+==============================================================================
+ ROOMIE.KZ — DEFENCE READINESS CHECKLIST
+ Verified: 2026-05-24 (Asia/Almaty)
+ Public URL: http://3.91.18.145:8080
+ Repo: abo-code-1/Roomie.kz
+==============================================================================
+ Legend: [x] verified pass   [ ] not met   [~] partial / cannot fully verify
+ Each line states what was actually checked.
+
+ SUMMARY: 8 pass / 4 partial / 2 not met
+------------------------------------------------------------------------------
+
+[x] Application is LIVE on dashboard.deployrocks.com (or any other free cloud platform) with working public URL
+      Verified current public EC2 URL:
+        GET http://3.91.18.145:8080/ -> 200
+        GET http://3.91.18.145:8080/api/health -> {"status":"ok","db":"connected"}
+        GET http://3.91.18.145:8080/api/docs/ -> 200
+      NOTE: This is AWS EC2, not dashboard.deployrocks.com.
+
+[ ] docker compose up boots entire stack (backend + frontend + postgres + redis)
+      Per latest instruction, Redis integration is intentionally NOT implemented.
+      Verified local compose does boot the non-Redis stack:
+        db        Up/healthy, mapped to localhost:5434
+        backend   Up, http://localhost:5050/api/health -> 200
+        frontend  Up, http://localhost:5174 -> 200
+        worker    Up
+      Remaining gap: no redis service exists in docker-compose.yml.
+
+[x] pytest / jest runs and passes with full test suite
+      Backend:
+        cd backend && npm test
+        9 suites passed / 58 tests passed.
+      npm test now runs prisma:generate first so the suite does not depend
+      on a stale local Prisma client.
+      Frontend has no Jest/Vitest suite configured; npm run build passes.
+
+[~] Swagger UI / API docs is accessible on the deployed URL and covers ALL endpoints
+      Swagger UI is accessible on the deployed URL:
+        http://3.91.18.145:8080/api/docs/ -> 200
+      Local code is fixed:
+        backend/openapi.yaml now documents 55 operations across all current routes.
+        Local http://localhost:5050/api/openapi.json serves the 55-operation spec.
+      Deployment gap:
+        the public EC2 backend is still running the old build; for example
+        POST /api/auth/forgot-password currently returns 404 on the public URL.
+      To mark fully done: redeploy the current code to EC2.
+
+[~] All auth endpoints work on deployed frontend: register, login, logout, refresh, RBAC protected routes
+      Local/backend coverage passes in Jest:
+        register, login, refresh rotation, logout revocation, /auth/me,
+        switch-role, protected routes, and RBAC cases.
+      Frontend wiring exists:
+        RegisterPage, LoginPage, logout thunk, refresh interceptor,
+        ProtectedRoute, RoleRoute.
+      Not fully checked today:
+        full browser-click workflow on the deployed frontend after these local fixes.
+
+[x] Email verification sends REAL email on signup using 3rd party service
+      Implemented with nodemailer SMTP. Signup issues a verification code and
+      sends it inline; /auth/email/request-code and /auth/email/verify exist.
+      Production/local non-test config is SMTP-backed, not mock, when SMTP_HOST,
+      SMTP_USER, and SMTP_PASS are present.
+      Tests force mock mode so they do not send real email.
+
+[~] Password reset sends REAL email with working reset link
+      Local code is implemented:
+        POST /auth/forgot-password creates a token and emails CLIENT_URL/reset-password?token=...
+        POST /auth/reset-password consumes the token, changes the password,
+        and revokes refresh tokens.
+        Frontend pages exist: ForgotPasswordPage and ResetPasswordPage.
+      Deployment gap:
+        public EC2 currently returns 404 for POST /api/auth/forgot-password,
+        so this is not live until redeployed.
+
+[x] At least 3 business event emails are implemented and queued via background worker
+      Implemented 5 business-event email templates:
+        welcome
+        application_received
+        application_accepted
+        application_rejected
+        listing_approved
+      Queue is Postgres-backed through email_jobs and src/worker.js, not Redis.
+      Enqueue points are in authController, applicationController, and adminController.
+
+[x] Frontend demo consumes real backend API and demonstrates all major workflows
+      React/Vite frontend uses apiClient against /api, not mocked data.
+      Local compose frontend is up at http://localhost:5174.
+      npm run build passes.
+      Workflows present: listings, auth/email verification, password reset,
+      profile, listing CRUD, applications/applicants, favorites, saved searches,
+      bill split, admin users/listings/verifications/cities/neighborhoods.
+
+[~] All business logic endpoints from blueprint are implemented and testable
+      No blueprint/spec document exists in the repo to compare 1:1.
+      Current implemented API surface is documented locally as 55 operations:
+        auth, listings, bills, applications, favorites, saved searches,
+        admin, cities, neighborhoods, uploads, health.
+      Core business logic is covered by the passing backend Jest suite.
+
+[x] Background workers are running and processing jobs
+      Local compose worker is up.
+      Verified worker processing:
+        inserted local email_jobs row #1 with type welcome
+        worker log: "[worker] sent #1 welcome -> defence@example.test"
+      Worker startup bug fixed: docker-compose.yml now runs prisma:generate before worker start.
+
+[x] No raw SQL queries exist in codebase (ORM only)
+      Clean scan over backend/src, backend/tests, and seed scripts:
+        no $queryRaw / $executeRaw
+        no client.query
+        no raw SELECT / INSERT / UPDATE / DELETE / TRUNCATE strings
+      Test DB setup now uses createdb + Prisma db push.
+      Prisma migration SQL files are migration artifacts and are not application queries.
+
+[x] Postman collection with ALL endpoints loaded in separate tabs ready for defense
+      Added:
+        postman/Roomie.kz.postman_collection.json
+      Collection has 55 requests, matching the 55 OpenAPI operations.
+      Requests are grouped by Health, Auth, Listings, Bills, Applications,
+      Favorites, Saved Searches, Admin, Cities, Neighborhoods, Uploads.
+
+[ ] I am the sole author of the architectural decisions in this code
+      This is a personal declaration only the project owner can make.
+      I cannot truthfully verify or mark it done.
+      Note: this Codex/Claude session changed architecture-adjacent pieces:
+        worker startup, OpenAPI coverage, Postman collection, test setup,
+        and checklist status.
+
+------------------------------------------------------------------------------
+ GAPS LEFT BEFORE DEFENCE
+   1. Redis remains intentionally incomplete per latest instruction.
+   2. Redeploy current code to EC2 so password reset and the 55-operation docs
+      are live on http://3.91.18.145:8080.
+   3. Browser-click the deployed frontend auth/RBAC workflows after redeploy.
+   4. Owner must decide how to represent authorship honestly.
+==============================================================================

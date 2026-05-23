@@ -5,7 +5,7 @@ Simple, single-server CI/CD:
 - GitHub Actions runs lint + jest on every push/PR to `main`
 - the workflow builds **two** Docker images (`roomie-kz-backend`, `roomie-kz-frontend`) and pushes them to Docker Hub
 - the EC2 server pulls both images and runs `docker-compose.prod.yml`
-- Compose runs three services: `db` (Postgres 16), `backend` (Node + Prisma), `frontend` (nginx serving the Vite build and reverse-proxying `/api` to the backend)
+- Compose runs four services: `db` (Postgres 16), `backend` (Node + Prisma), `worker` (background email jobs), and `frontend` (nginx serving the Vite build and reverse-proxying `/api` to the backend)
 
 ---
 

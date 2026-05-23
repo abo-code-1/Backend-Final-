@@ -44,6 +44,28 @@ services:
       - /app/node_modules
     command: sh -c "npm install && npm run prisma:generate && npm run prisma:push && npm run dev"
 
+  # Background email worker (Postgres-backed queue, no Redis).
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: dev
+    container_name: roomie_kz_worker
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:${FRONTEND_PORT:-5173}}
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm run prisma:generate && node src/worker.js"
+
   frontend:
     build:
       context: ./frontend

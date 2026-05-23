@@ -48,6 +48,15 @@ export const changePasswordSchema = z.object({
   newPassword: passwordSchema
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Invalid email address")
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(20, "Invalid reset token"),
+  password: passwordSchema
+});
+
 export const switchRoleSchema = z.object({
   role: z.enum(["seeker", "host"])
 });
