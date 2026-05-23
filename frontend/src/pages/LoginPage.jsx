@@ -93,7 +93,7 @@ export default function LoginPage() {
                 <input type="checkbox" className="h-4 w-4 accent-primary" />
                 <span>Запомнить меня</span>
               </label>
-              <Link to="/help" className="text-primary font-semibold">
+              <Link to="/forgot-password" className="text-primary font-semibold">
                 Забыли пароль?
               </Link>
             </div>

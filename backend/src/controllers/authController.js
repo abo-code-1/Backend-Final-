@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "../config/db.js";
 import { env } from "../config/env.js";
@@ -11,13 +12,19 @@ import {
 } from "../utils/jwt.js";
 import {
   changePasswordSchema,
+  forgotPasswordSchema,
   loginSchema,
   refreshSchema,
   registerSchema,
+  resetPasswordSchema,
   updateProfileSchema
 } from "../validators/zodSchemas.js";
-import { sendVerificationEmail } from "../utils/mailer.js";
+import { sendPasswordResetEmail, sendVerificationEmail } from "../utils/mailer.js";
+import { enqueueEmail } from "../services/emailQueue.js";
 import { issueCode } from "./emailVerificationController.js";
+
+const PASSWORD_RESET_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const sha256 = (value) => crypto.createHash("sha256").update(value).digest("hex");
 
 const authUserSelect = {
   id: true,
@@ -115,6 +122,9 @@ export const register = asyncHandler(async (req, res) => {
     // eslint-disable-next-line no-console
     console.error("[mailer] sendVerificationEmail on register failed:", emailError);
   }
+
+  // Business-event email, sent asynchronously by the background worker.
+  await enqueueEmail("welcome", user.email, { fullName: user.fullName });
 
   return res.status(201).json({
     message: "Registered successfully",
@@ -313,6 +323,92 @@ export const changePassword = asyncHandler(async (req, res) => {
   ]);
 
   return res.json({ message: "Password changed successfully" });
+});
+
+// POST /auth/forgot-password  (public) — body: { email }
+export const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = forgotPasswordSchema.parse(req.body);
+
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+    select: { id: true, email: true, isBanned: true }
+  });
+
+  // Always return the same response so we never reveal whether an account exists.
+  const genericMessage =
+    "If that account exists, a password reset link has been sent.";
+
+  if (!user || user.isBanned) {
+    return res.json({ message: genericMessage });
+  }
+
+  // Invalidate prior unused reset tokens, then issue a fresh one.
+  await prisma.passwordReset.deleteMany({
+    where: { userId: user.id, usedAt: null }
+  });
+  const token = crypto.randomBytes(32).toString("hex");
+  await prisma.passwordReset.create({
+    data: {
+      userId: user.id,
+      tokenHash: sha256(token),
+      expiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MS)
+    }
+  });
+
+  const resetUrl = `${env.clientUrl}/reset-password?token=${token}`;
+
+  const payload = { message: genericMessage };
+  try {
+    const { mocked } = await sendPasswordResetEmail(user.email, resetUrl);
+    // In mock mode (no SMTP) surface the link so the flow is testable in dev.
+    if (mocked && env.email.mock) {
+      payload.devResetUrl = resetUrl;
+      payload.message =
+        "Password reset link generated (mock mode — check server logs).";
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error("[mailer] sendPasswordResetEmail failed:", e?.message);
+  }
+
+  return res.json(payload);
+});
+
+// POST /auth/reset-password  (public) — body: { token, password }
+export const resetPassword = asyncHandler(async (req, res) => {
+  const { token, password } = resetPasswordSchema.parse(req.body);
+
+  const record = await prisma.passwordReset.findUnique({
+    where: { tokenHash: sha256(token) }
+  });
+  if (!record || record.usedAt || record.expiresAt.getTime() < Date.now()) {
+    const message = "Invalid or expired reset link";
+    return res.status(400).json({
+      message,
+      error: { code: "INVALID_RESET_TOKEN", message }
+    });
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+
+  // Set the new password, consume the token, and revoke all sessions so any
+  // attacker holding an old token is logged out.
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: record.userId },
+      data: { passwordHash }
+    }),
+    prisma.passwordReset.update({
+      where: { id: record.id },
+      data: { usedAt: new Date() }
+    }),
+    prisma.refreshToken.updateMany({
+      where: { userId: record.userId, revokedAt: null },
+      data: { revokedAt: new Date() }
+    })
+  ]);
+
+  return res.json({ message: "Password has been reset. You can now log in." });
 });
 
 export const switchRole = asyncHandler(async (req, res) => {

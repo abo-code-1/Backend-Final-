@@ -1,0 +1,114 @@
+==============================================================================
+ ROOMIE.KZ — DEFENCE READINESS CHECKLIST
+ Verified: 2026-05-22  |  Prod: http://3.91.18.145:8080  |  Repo: abo-code-1/Roomie.kz
+==============================================================================
+ Legend:  [x] verified pass   [ ] not met   [~] partial / cannot fully verify
+ Each line states what was actually checked, not what is assumed.
+
+ SUMMARY:  5 pass  /  1 partial  /  1 self-attest  /  7 not met
+------------------------------------------------------------------------------
+
+[x] Application is LIVE with a working public URL
+      http://3.91.18.145:8080 (AWS EC2, Docker). GET / -> 200.
+      NOTE: hosted on EC2, not deployrocks.com. Rubric allows "any other cloud
+      platform" — EC2 qualifies, but it is NOT a free tier. Confirm that's OK.
+
+[ ] docker compose up boots entire stack (backend + frontend + postgres + REDIS)
+      Stack boots backend + frontend + postgres only. There is NO redis service
+      in docker-compose.yml or docker-compose.prod.yml, and no redis client dep.
+      -> To pass: add a redis service + wire a queue (see items 8 & 11).
+
+[x] Test suite runs and passes        (backend jest: 9 suites / 58 tests, all green)
+      `cd backend && npm test` -> unit (jwt, password, email schema) + integration
+      (auth, rbac, atomicity, profile, applicants, email verification). Isolated
+      test DB (roomie_kz_test); prod untouched.
+      NOTE: FRONTEND has no test suite (no jest/vitest configured). "Full suite"
+      = backend only.
+
+[ ] Swagger UI accessible AND covers ALL endpoints
+      Swagger UI IS live: http://3.91.18.145:8080/api/docs/ -> 200 ("Roomie.kz
+      API Docs"); also /swagger/docs and /api/openapi.json (200).
+      BUT openapi.yaml documents only ~19 paths and is STALE/incomplete:
+        - missing: /cities, /neighborhoods, /uploads/images, /listings/{id},
+          bills, full applications lifecycle, /auth/change-password,
+          /auth/email/*, /admin/users/{id}/ban|role|DELETE,
+          /admin/listings/{id}/moderate, /admin/verifications/{id}/review
+        - documents endpoints that no longer exist (/auth/phone/send-otp, verify-otp)
+      -> Does NOT cover all endpoints. Needs openapi.yaml regenerated/completed.
+
+[x] All auth endpoints work on deployed backend (register, login, logout, refresh, RBAC)
+      Verified live on prod:
+        register -> 201 ; login -> 200 ; refresh -> 200 ;
+        logout -> 200 ; refresh-after-logout -> 401 (token revoked) ;
+        RBAC: host hitting /admin/* -> 403 ; super_admin -> allowed.
+
+[x] Email verification sends a REAL email on signup via a 3rd-party service
+      Signup response: emailVerification {required:true, dispatched:true, mock:false}.
+      SMTP = smtp.gmail.com:587 (Gmail), EMAIL_FROM "Roomie.kz <abocorp4@gmail.com>".
+      Code-based verification (POST /auth/email/request-code, /auth/email/verify).
+
+[ ] Password reset sends a REAL email with a working reset link
+      No password-reset flow exists. There is only:
+        - email VERIFICATION (6-digit code), and
+        - /auth/change-password (requires being logged in + current password).
+      There is NO "forgot password" -> emailed reset link.
+      -> To pass: add reset-token issuance + emailed link + reset endpoint.
+
+[ ] >=3 business-event emails implemented and queued via a background worker
+      Only ONE email type exists (verification code), sent SYNCHRONOUSLY in the
+      request (backend/src/utils/mailer.js). No queue, no worker.
+      -> To pass: add redis + a queue (e.g. BullMQ) + a worker, and >=3 event
+      emails (e.g. "application received", "application accepted/rejected",
+      "listing approved", "welcome").
+
+[x] Frontend demo consumes the real backend API and shows major workflows
+      Frontend (React/Vite) calls the real /api via axios (apiClient). Workflows
+      present: browse/search/paginate listings, auth + email verify, create/edit
+      listing, applications, favorites, saved searches, bill-split, admin
+      (users, listing moderation, ID verifications, cities, neighborhoods).
+      NOTE: "all major workflows" is subjective — spot-check during the demo.
+
+[~] All business-logic endpoints "from blueprint" implemented and testable
+      Cannot fully verify: no blueprint/spec document found in the repo to diff
+      against. Implemented + testable domains (52 route handlers): auth, profile,
+      listings, bills, applications, favorites, saved searches, reviews(seed),
+      admin moderation/users, cities, neighborhoods, uploads.
+      -> Provide the blueprint to confirm 1:1 coverage.
+
+[ ] Background workers are running and processing jobs
+      No worker process and no job queue exist. Nothing to run/process.
+      -> Blocked by the same gap as items 2 & 8 (redis + queue + worker).
+
+[ ] No raw SQL queries exist (ORM only)
+      Raw SQL IS present:
+        - backend/src/index.js:79          $queryRaw `SELECT 1`  (health check)
+        - backend/src/controllers/applicationController.js:162
+              $queryRaw `... FOR UPDATE`  (row lock — Prisma has no native
+              SELECT FOR UPDATE; intentional, but still raw SQL)
+        - backend/tests/helpers.js          $executeRawUnsafe TRUNCATE (tests only)
+      -> To pass: remove/replace the health-check raw query; the FOR UPDATE lock
+         would need an ORM-supported alternative or a documented exception.
+
+[ ] Postman collection with ALL endpoints, ready for defence
+      No Postman collection (*.postman_collection.json) in the repo.
+      openapi.yaml could be imported into Postman, but it is incomplete (item 4).
+      -> To pass: complete openapi.yaml then import/generate a collection, or
+         build one by hand covering every endpoint.
+
+[ ] I am the sole author of the architectural decisions in this code
+      THIS IS YOUR DECLARATION TO MAKE — not something I can verify for you.
+      For honesty: this session (Claude) implemented several features (instant
+      listing publish, account deletion, prod seed, deploy) and made
+      architectural suggestions, and recent commits carry
+      "Co-Authored-By: Claude" trailers. Decide how to represent authorship
+      accurately before checking this box.
+
+------------------------------------------------------------------------------
+ GAPS TO CLOSE BEFORE DEFENCE (ordered by effort):
+   1. openapi.yaml — complete + de-stale, then export a Postman collection   (items 4, 13)
+   2. Password-reset flow (token + emailed link + endpoint + UI)             (item 7)
+   3. Redis + BullMQ queue + worker + >=3 event emails                        (items 2, 8, 11)
+   4. Remove the health-check raw query (and decide on the FOR UPDATE lock)   (item 12)
+   5. Confirm EC2 vs "free platform" is acceptable for the rubric            (item 1)
+   6. (Optional) add a minimal frontend test suite                            (item 3)
+==============================================================================

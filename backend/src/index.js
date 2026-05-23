@@ -76,7 +76,9 @@ try {
 
 app.get("/api/health", async (_req, res) => {
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    // ORM-only liveness probe (no raw SQL): a cheap indexed lookup that
+    // throws if the database is unreachable.
+    await prisma.city.findFirst({ select: { id: true } });
     res.json({ status: "ok", db: "connected" });
   } catch (_error) {
     res.status(500).json({
