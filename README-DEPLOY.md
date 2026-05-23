@@ -88,11 +88,11 @@ APP_PORT=80
 # DB
 DB_NAME=roomie_kz
 DB_USER=roomie_user
-DB_PASSWORD=<a-strong-random-password>
+DB_PASSWORD=YOUR_STRONG_DATABASE_PASSWORD
 
 # Backend secrets — generate with: openssl rand -hex 48
-JWT_SECRET=<32+chars>
-JWT_REFRESH_SECRET=<32+chars>
+JWT_SECRET=YOUR_48_CHARACTER_HEX_JWT_SECRET
+JWT_REFRESH_SECRET=YOUR_48_CHARACTER_HEX_REFRESH_SECRET
 ACCESS_TOKEN_TTL=15m
 REFRESH_TOKEN_TTL=7d
 
@@ -102,8 +102,8 @@ CORS_ALLOWED_ORIGINS=https://roomie.example.kz
 
 # Image coordinates — overridden by GitHub Actions on each deploy,
 # but provide sensible fallbacks so a manual `docker compose pull` works.
-BACKEND_IMAGE=<dockerhub-user>/roomie-kz-backend
-FRONTEND_IMAGE=<dockerhub-user>/roomie-kz-frontend
+BACKEND_IMAGE=DOCKERHUB_USERNAME/roomie-kz-backend
+FRONTEND_IMAGE=DOCKERHUB_USERNAME/roomie-kz-frontend
 IMAGE_TAG=latest
 EOF
 chmod 600 /opt/roomie-kz/.env
@@ -206,12 +206,13 @@ docker compose -f docker-compose.prod.yml exec db psql -U $DB_USER -d $DB_NAME
 
 ## 9. Rolling back
 
-Every deploy pins `IMAGE_TAG=<git-sha>`. To roll back:
+To roll back (replace `COMMIT_SHA` with the target version from your GitHub history or `docker image ls`):
 
 ```bash
 ssh ubuntu@<EC2_IP>
 cd /opt/roomie-kz
-sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=<previous-sha>/' .env
+# Find the SHA you want to roll back to, then:
+sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=COMMIT_SHA/' .env
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
 ```

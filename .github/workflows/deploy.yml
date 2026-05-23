@@ -186,17 +186,9 @@ jobs:
               exit 1
             fi
 
-            # Forward workflow values; let them win over .env so a stale IMAGE_TAG=latest
-            # in .env can't clobber the SHA we just built.
-            WF_BACKEND_IMAGE="$BACKEND_IMAGE"
-            WF_FRONTEND_IMAGE="$FRONTEND_IMAGE"
-            WF_IMAGE_TAG="$IMAGE_TAG"
-            set -a
-            . ./.env
-            set +a
-            BACKEND_IMAGE="$WF_BACKEND_IMAGE"
-            FRONTEND_IMAGE="$WF_FRONTEND_IMAGE"
-            IMAGE_TAG="$WF_IMAGE_TAG"
+            # Export workflow values so they override whatever is in .env.
+            # docker-compose automatically picks up these exported variables
+            # and uses them to interpolate values in docker-compose.prod.yml.
             export BACKEND_IMAGE FRONTEND_IMAGE IMAGE_TAG
 
             echo "BACKEND_IMAGE=[$BACKEND_IMAGE] FRONTEND_IMAGE=[$FRONTEND_IMAGE] IMAGE_TAG=[$IMAGE_TAG]"
@@ -215,7 +207,12 @@ jobs:
             echo "[deploy] bringing stack up"
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
-            HEALTH_PORT="${APP_PORT:-80}"
+            # Extract APP_PORT from .env manually for the health check.
+            # We avoid sourcing .env because it may contain shell-incompatible characters.
+            # We use sed to handle spaces around '=' and comments, taking the first match.
+            HEALTH_PORT=$(sed -n 's/^[[:space:]]*APP_PORT[[:space:]]*=[[:space:]]*\([^#[:space:]]*\).*/\1/p' .env | head -n 1 | tr -d '\r')
+            HEALTH_PORT="${HEALTH_PORT:-80}"
+
             echo "[deploy] waiting for health on 127.0.0.1:${HEALTH_PORT}"
             for i in $(seq 1 30); do
               if curl -fsS "http://127.0.0.1:${HEALTH_PORT}/api/health" > /dev/null 2>&1; then
