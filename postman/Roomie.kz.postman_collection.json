@@ -1,0 +1,737 @@
+{
+  "info": {
+    "_postman_id": "2b7fe1c8-0f0c-4b8a-99d8-roomie-kz-defence",
+    "name": "Roomie.kz API Defence",
+    "description": "All Roomie.kz backend endpoints as separate Postman requests. Set baseUrl, run auth requests to populate tokens, then use the saved variables for protected routes.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://3.91.18.145:8080/api"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "email",
+      "value": "defence-seeker@example.com"
+    },
+    {
+      "key": "password",
+      "value": "Sup3rStrong!"
+    },
+    {
+      "key": "listingId",
+      "value": "1"
+    },
+    {
+      "key": "billId",
+      "value": "1"
+    },
+    {
+      "key": "applicationId",
+      "value": "1"
+    },
+    {
+      "key": "userId",
+      "value": "1"
+    },
+    {
+      "key": "cityId",
+      "value": "1"
+    },
+    {
+      "key": "neighborhoodId",
+      "value": "1"
+    },
+    {
+      "key": "verificationId",
+      "value": "1"
+    },
+    {
+      "key": "resetToken",
+      "value": ""
+    },
+    {
+      "key": "emailCode",
+      "value": "000000"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{baseUrl}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "POST /auth/register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.accessToken) pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "if (json.refreshToken) pm.collectionVariables.set('refreshToken', json.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"fullName\": \"Defence Seeker\",\n  \"phone\": \"+77010009999\",\n  \"role\": \"seeker\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/register"
+          }
+        },
+        {
+          "name": "POST /auth/login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.accessToken) pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "if (json.refreshToken) pm.collectionVariables.set('refreshToken', json.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        {
+          "name": "POST /auth/refresh",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.accessToken) pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "if (json.refreshToken) pm.collectionVariables.set('refreshToken', json.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/refresh"
+          }
+        },
+        {
+          "name": "POST /auth/logout",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/logout"
+          }
+        },
+        {
+          "name": "GET /auth/me",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/auth/me"
+          }
+        },
+        {
+          "name": "PATCH /auth/me",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bio\": \"Updated from Postman defence collection\",\n  \"occupation\": \"Student\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/me"
+          }
+        },
+        {
+          "name": "POST /auth/change-password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{password}}\",\n  \"newPassword\": \"N3wSup3rStrong!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/change-password"
+          }
+        },
+        {
+          "name": "PATCH /auth/switch-role",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"host\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/switch-role"
+          }
+        },
+        {
+          "name": "POST /auth/email/request-code",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/email/request-code"
+          }
+        },
+        {
+          "name": "POST /auth/email/verify",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"code\": \"{{emailCode}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/email/verify"
+          }
+        },
+        {
+          "name": "POST /auth/forgot-password",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/forgot-password"
+          }
+        },
+        {
+          "name": "POST /auth/reset-password",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"password\": \"N3wSup3rStrong!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/auth/reset-password"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Listings",
+      "item": [
+        {
+          "name": "GET /listings",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{baseUrl}}/listings?city=almaty&page=1&limit=12&sort=newest"
+          }
+        },
+        {
+          "name": "POST /listings",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Defence demo room\",\n  \"description\": \"Bright clean room for defence demo workflow.\",\n  \"city\": \"almaty\",\n  \"district\": \"Бостандыкский\",\n  \"monthlyRent\": 180000,\n  \"deposit\": 90000,\n  \"totalRooms\": 3,\n  \"availableRooms\": 1,\n  \"currentOccupants\": 1,\n  \"maxOccupants\": 3,\n  \"petsAllowed\": false,\n  \"smokingAllowed\": \"outside\",\n  \"genderPreference\": \"any\",\n  \"furnished\": true,\n  \"internetIncluded\": true,\n  \"status\": \"active\",\n  \"bills\": [\n    { \"category\": \"internet\", \"label\": \"Internet\", \"amountKzt\": 8000, \"isIncludedInRent\": true }\n  ],\n  \"houseRules\": [\n    { \"ruleText\": \"Тишина после 23:00\", \"orderIndex\": 1 }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/listings"
+          }
+        },
+        {
+          "name": "GET /listings/mine",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/listings/mine"
+          }
+        },
+        {
+          "name": "GET /listings/:id",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{baseUrl}}/listings/{{listingId}}"
+          }
+        },
+        {
+          "name": "PATCH /listings/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated defence demo room\",\n  \"description\": \"Updated description from Postman.\",\n  \"city\": \"almaty\",\n  \"monthlyRent\": 185000,\n  \"totalRooms\": 3,\n  \"availableRooms\": 1,\n  \"maxOccupants\": 3\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/listings/{{listingId}}"
+          }
+        },
+        {
+          "name": "DELETE /listings/:id",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/listings/{{listingId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bills",
+      "item": [
+        {
+          "name": "GET /listings/:listingId/bills",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{baseUrl}}/listings/{{listingId}}/bills"
+          }
+        },
+        {
+          "name": "POST /listings/:listingId/bills",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"utilities\",\n  \"label\": \"Коммунальные\",\n  \"amountKzt\": 12000,\n  \"isIncludedInRent\": false,\n  \"notes\": \"Monthly average\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/listings/{{listingId}}/bills"
+          }
+        },
+        {
+          "name": "PATCH /bills/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"utilities\",\n  \"label\": \"Коммунальные updated\",\n  \"amountKzt\": 13000,\n  \"isIncludedInRent\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/bills/{{billId}}"
+          }
+        },
+        {
+          "name": "DELETE /bills/:id",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/bills/{{billId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Applications",
+      "item": [
+        {
+          "name": "POST /listings/:listingId/applications",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"I am interested in this room.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/listings/{{listingId}}/applications"
+          }
+        },
+        {
+          "name": "GET /applications/me",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/applications/me"
+          }
+        },
+        {
+          "name": "GET /listings/:listingId/applications",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/listings/{{listingId}}/applications"
+          }
+        },
+        {
+          "name": "PATCH /applications/:id/withdraw",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/applications/{{applicationId}}/withdraw"
+          }
+        },
+        {
+          "name": "PATCH /applications/:id/accept",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/applications/{{applicationId}}/accept"
+          }
+        },
+        {
+          "name": "PATCH /applications/:id/reject",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/applications/{{applicationId}}/reject"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Favorites",
+      "item": [
+        {
+          "name": "GET /favorites",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/favorites"
+          }
+        },
+        {
+          "name": "GET /favorites/check",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/favorites/check?listingId={{listingId}}"
+          }
+        },
+        {
+          "name": "POST /favorites",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listingId\": {{listingId}}\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/favorites"
+          }
+        },
+        {
+          "name": "DELETE /favorites/:listingId",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/favorites/{{listingId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Saved Searches",
+      "item": [
+        {
+          "name": "GET /saved-searches",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/saved-searches"
+          }
+        },
+        {
+          "name": "POST /saved-searches",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Almaty under 200k\",\n  \"filterJson\": {\n    \"city\": \"almaty\",\n    \"maxPrice\": 200000,\n    \"furnished\": true\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/saved-searches"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "GET /admin/stats",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/stats"
+          }
+        },
+        {
+          "name": "GET /admin/users",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/users?search=&role="
+          }
+        },
+        {
+          "name": "PATCH /admin/users/:id/ban",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isBanned\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/admin/users/{{userId}}/ban"
+          }
+        },
+        {
+          "name": "PATCH /admin/users/:id/role",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"admin\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/admin/users/{{userId}}/role"
+          }
+        },
+        {
+          "name": "DELETE /admin/users/:id",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/admin/users/{{userId}}"
+          }
+        },
+        {
+          "name": "GET /admin/listings/pending",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/listings/pending"
+          }
+        },
+        {
+          "name": "PATCH /admin/listings/:id/moderate",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"approved\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/admin/listings/{{listingId}}/moderate"
+          }
+        },
+        {
+          "name": "GET /admin/verifications/pending",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/admin/verifications/pending"
+          }
+        },
+        {
+          "name": "PATCH /admin/verifications/:id/review",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"approved\",\n  \"adminNote\": \"Approved during defence demo\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/admin/verifications/{{verificationId}}/review"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cities",
+      "item": [
+        {
+          "name": "GET /cities",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{baseUrl}}/cities"
+          }
+        },
+        {
+          "name": "GET /cities/all",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/cities/all"
+          }
+        },
+        {
+          "name": "POST /cities",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slug\": \"demo-city\",\n  \"nameRu\": \"Демо город\",\n  \"isActive\": true,\n  \"sortOrder\": 99\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/cities"
+          }
+        },
+        {
+          "name": "PATCH /cities/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nameRu\": \"Демо город updated\",\n  \"isActive\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/cities/{{cityId}}"
+          }
+        },
+        {
+          "name": "DELETE /cities/:id",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/cities/{{cityId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Neighborhoods",
+      "item": [
+        {
+          "name": "GET /neighborhoods",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{baseUrl}}/neighborhoods?cityId={{cityId}}"
+          }
+        },
+        {
+          "name": "GET /neighborhoods/all",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/neighborhoods/all"
+          }
+        },
+        {
+          "name": "POST /neighborhoods",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cityId\": {{cityId}},\n  \"name\": \"Демо район\",\n  \"description\": \"Created from Postman collection\",\n  \"tags\": [\"Транспорт\", \"Учёба\"],\n  \"isActive\": true,\n  \"sortOrder\": 99\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/neighborhoods"
+          }
+        },
+        {
+          "name": "PATCH /neighborhoods/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Демо район updated\",\n  \"isActive\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/neighborhoods/{{neighborhoodId}}"
+          }
+        },
+        {
+          "name": "DELETE /neighborhoods/:id",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/neighborhoods/{{neighborhoodId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Uploads",
+      "item": [
+        {
+          "name": "POST /uploads/images",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/uploads/images"
+          }
+        }
+      ]
+    }
+  ]
+}

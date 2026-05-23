@@ -1,47 +1,30 @@
 openapi: 3.0.3
 info:
-  title: 'Roomie.kz API'
+  title: Roomie.kz API
   version: 1.0.0
-  description: "Backend API for **Roomie.kz** — a Kazakhstan-focused roommate / shared-room\nplatform.\n\n## Authentication\n- All non-public endpoints require a Bearer **access token** issued by\n  `POST /auth/login` or `POST /auth/register`.\n- Access tokens expire in 15 min by default; clients exchange a long-lived\n  **refresh token** at `POST /auth/refresh` to rotate the pair.\n- Logging out via `POST /auth/logout` revokes the refresh token server-side.\n\n## Roles\n- `seeker` — searches listings, applies to rooms.\n- `host`   — creates and manages listings.\n- `admin`  — moderates listings, users, and ID verifications.\n\n## Error envelope\nEvery error response body has the shape:\n```json\n{\n  \"message\": \"Human-readable summary\",\n  \"error\":   { \"code\": \"MACHINE_CODE\", \"message\": \"...\", \"details\": [...] }\n}\n```\nValidation errors additionally include an `errors` array at the top level.\n"
-  contact:
-    name: 'Roomie.kz Backend'
-  license:
-    name: MIT
+  description: >
+    Route-accurate API documentation for the Roomie.kz backend. All paths are
+    served under `/api`; authenticate protected endpoints with a Bearer access
+    token returned by register/login/refresh.
 servers:
-  -
-    url: 'http://localhost:5050/api'
-    description: 'Local docker-compose (host port via BACKEND_PORT)'
-  -
-    url: 'http://localhost:5000/api'
-    description: 'Local default (npm run dev)'
+  - url: http://localhost:5050/api
+    description: Local docker-compose
+  - url: http://3.91.18.145:8080/api
+    description: Current EC2 deployment
 security:
-  -
-    bearerAuth: []
+  - bearerAuth: []
 tags:
-  -
-    name: Health
-    description: 'Liveness + DB ping'
-  -
-    name: Auth
-    description: 'Registration, login, refresh, logout, role switch'
-  -
-    name: Listings
-    description: 'Public browsing and host-managed listing CRUD'
-  -
-    name: Bills
-    description: 'Per-listing recurring charges (rent, utilities, internet, ...)'
-  -
-    name: Applications
-    description: 'Seeker → host application lifecycle (atomic accept)'
-  -
-    name: Favorites
-    description: 'Personal listing bookmarks'
-  -
-    name: 'Saved Searches'
-    description: 'Persisted filter sets for re-running searches'
-  -
-    name: Admin
-    description: 'Moderation, user management, ID verification review'
+  - name: Health
+  - name: Auth
+  - name: Listings
+  - name: Bills
+  - name: Applications
+  - name: Favorites
+  - name: Saved Searches
+  - name: Admin
+  - name: Cities
+  - name: Neighborhoods
+  - name: Uploads
 components:
   securitySchemes:
     bearerAuth:
@@ -50,95 +33,57 @@ components:
       bearerFormat: JWT
   parameters:
     IdPath:
-      in: path
       name: id
+      in: path
       required: true
-      description: 'Numeric primary key'
       schema:
         type: integer
         minimum: 1
     ListingIdPath:
-      in: path
       name: listingId
+      in: path
       required: true
-      description: 'Numeric listing primary key'
       schema:
         type: integer
         minimum: 1
   schemas:
-    Error:
+    Message:
       type: object
-      required:
-        - message
-        - error
       properties:
         message:
           type: string
-          example: 'Validation failed'
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
         error:
           type: object
-          required:
-            - code
-            - message
           properties:
             code:
               type: string
-              example: VALIDATION_FAILED
             message:
               type: string
-              example: 'Validation failed'
             details:
               type: array
               items:
                 type: object
-                properties:
-                  path:
-                    type: string
-                    example: password
-                  message:
-                    type: string
-                    example: 'Password must contain a digit'
-        errors:
-          description: 'Mirror of `error.details` for legacy clients.'
-          type: array
-          items:
-            type: object
-            properties:
-              path:
-                type: string
-              message:
-                type: string
-    Message:
-      type: object
-      required:
-        - message
-      properties:
-        message:
-          type: string
-          example: OK
     User:
       type: object
       properties:
         id:
           type: integer
-          example: 1
         email:
           type: string
           format: email
-          example: alice@example.com
         fullName:
           type: string
-          example: 'Alice Nurlanovna'
         phone:
           type: string
           nullable: true
-          example: '+77011234567'
         role:
           type: string
-          enum:
-            - seeker
-            - host
-            - admin
+          enum: [seeker, host, admin, super_admin]
         avatarUrl:
           type: string
           nullable: true
@@ -153,6 +98,8 @@ components:
           nullable: true
         isPhoneVerified:
           type: boolean
+        isEmailVerified:
+          type: boolean
         isIdVerified:
           type: boolean
         isBanned:
@@ -160,1958 +107,987 @@ components:
         createdAt:
           type: string
           format: date-time
-    AdminUser:
-      allOf:
-        -
-          $ref: '#/components/schemas/User'
-      description: 'User row as returned to admins (subset of the public User).'
     RegisterInput:
       type: object
-      required:
-        - email
-        - password
-        - fullName
-        - phone
+      required: [email, password, fullName, phone]
       properties:
         email:
           type: string
           format: email
-          example: alice@example.com
+          example: seeker@example.com
         password:
           type: string
-          description: '8–128 chars; must include lower, upper, digit, and a symbol.'
-          example: Sup3rStr0ng!
+          example: Sup3rStrong!
         fullName:
           type: string
-          example: 'Alice Nurlanovna'
+          example: Aigerim Test
         phone:
           type: string
-          description: 'E.164 format. SMS OTP is dispatched on register; verify via /auth/phone/verify-otp.'
-          pattern: '^\+[1-9]\d{7,14}$'
-          example: '+77011234567'
+          example: "+77011234567"
         role:
           type: string
-          enum:
-            - seeker
-            - host
+          enum: [seeker, host]
           example: seeker
     LoginInput:
       type: object
-      required:
-        - email
-        - password
+      required: [email, password]
       properties:
         email:
           type: string
           format: email
-          example: alice@example.com
         password:
           type: string
-          example: Sup3rStr0ng!
     RefreshInput:
       type: object
-      required:
-        - refreshToken
+      required: [refreshToken]
       properties:
         refreshToken:
           type: string
-    SwitchRoleInput:
-      type: object
-      required:
-        - role
-      properties:
-        role:
-          type: string
-          enum:
-            - seeker
-            - host
-    AuthTokens:
+    UpdateProfileInput:
       type: object
       properties:
-        message:
-          type: string
-          example: 'Logged in successfully'
-        accessToken:
-          type: string
-          description: 'Short-lived JWT (default 15m).'
-        refreshToken:
-          type: string
-          description: 'Long-lived rotating token (default 7d).'
-        token:
-          type: string
-          description: 'Alias for accessToken (legacy clients).'
-        user:
-          $ref: '#/components/schemas/User'
-    Bill:
-      type: object
-      properties:
-        id:
-          type: integer
-        listingId:
-          type: integer
-        category:
-          type: string
-          enum:
-            - rent
-            - utilities
-            - internet
-            - cleaning
-            - other
-        label:
-          type: string
-          example: KazTransGaz
-        amountKzt:
-          type: string
-          example: '8500.00'
-        isIncludedInRent:
-          type: boolean
-        notes:
-          type: string
-          nullable: true
-    BillInput:
-      type: object
-      required:
-        - label
-        - amountKzt
-      properties:
-        category:
-          type: string
-          enum:
-            - rent
-            - utilities
-            - internet
-            - cleaning
-            - other
-          default: other
-        label:
-          type: string
-          example: Internet
-        amountKzt:
-          type: number
-          example: 8000
-        isIncludedInRent:
-          type: boolean
-          default: false
-        notes:
-          type: string
-          nullable: true
-    HouseRule:
-      type: object
-      properties:
-        id:
-          type: integer
-        ruleText:
-          type: string
-          example: 'No smoking indoors'
-        orderIndex:
-          type: integer
-          default: 0
-    HouseRuleInput:
-      type: object
-      required:
-        - ruleText
-      properties:
-        ruleText:
-          type: string
-        orderIndex:
-          type: integer
-    HostSummary:
-      type: object
-      properties:
-        id:
-          type: integer
         fullName:
+          type: string
+        bio:
+          type: string
+        gender:
+          type: string
+          enum: [male, female, other]
+        occupation:
           type: string
         avatarUrl:
           type: string
-          nullable: true
-        isPhoneVerified:
-          type: boolean
-        isIdVerified:
-          type: boolean
-    Listing:
+          format: uri
+    ChangePasswordInput:
       type: object
+      required: [currentPassword, newPassword]
       properties:
-        id:
-          type: integer
-          example: 17
-        hostId:
-          type: integer
-          example: 4
-        title:
+        currentPassword:
           type: string
-          example: 'Bright room near Almaty Mall'
-        description:
+        newPassword:
           type: string
-        city:
+    ForgotPasswordInput:
+      type: object
+      required: [email]
+      properties:
+        email:
           type: string
-          example: Almaty
-        district:
+          format: email
+    ResetPasswordInput:
+      type: object
+      required: [token, password]
+      properties:
+        token:
           type: string
-          nullable: true
-          example: Bostandyk
-        address:
+        password:
           type: string
-          nullable: true
-        latitude:
-          type: number
-          nullable: true
-        longitude:
-          type: number
-          nullable: true
-        monthlyRent:
+    SwitchRoleInput:
+      type: object
+      required: [role]
+      properties:
+        role:
           type: string
-          example: '180000.00'
-        deposit:
+          enum: [seeker, host]
+    EmailCodeRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
           type: string
-          nullable: true
-          example: '90000.00'
-        totalRooms:
-          type: integer
-          example: 3
-        availableRooms:
-          type: integer
-          example: 1
-        currentOccupants:
-          type: integer
-          example: 2
-        maxOccupants:
-          type: integer
-          example: 3
-        petsAllowed:
-          type: boolean
-        smokingAllowed:
+          format: email
+    EmailVerifyInput:
+      type: object
+      required: [email, code]
+      properties:
+        email:
           type: string
-          nullable: true
-          enum:
-            - yes
-            - no
-            - outside
-        genderPreference:
+          format: email
+        code:
           type: string
-          enum:
-            - any
-            - male
-            - female
-        minAge:
-          type: integer
-          nullable: true
-        maxAge:
-          type: integer
-          nullable: true
-        furnished:
-          type: boolean
-        internetIncluded:
-          type: boolean
-        availableFrom:
-          type: string
-          format: date-time
-          nullable: true
-        minStayMonths:
-          type: integer
-          nullable: true
-        photos:
-          type: array
-          items:
-            type: string
-            format: uri
-        status:
-          type: string
-          enum:
-            - draft
-            - active
-            - rented
-            - archived
-        isApproved:
-          type: boolean
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-        host:
-          $ref: '#/components/schemas/HostSummary'
-        bills:
-          type: array
-          items:
-            $ref: '#/components/schemas/Bill'
-        houseRules:
-          type: array
-          items:
-            $ref: '#/components/schemas/HouseRule'
-        _count:
-          type: object
-          properties:
-            applications:
-              type: integer
-            favorites:
-              type: integer
+          pattern: "^\\d{6}$"
     ListingInput:
       type: object
-      required:
-        - title
-        - description
-        - city
-        - monthlyRent
-        - totalRooms
-        - availableRooms
-        - maxOccupants
+      required: [title, description, city, monthlyRent, totalRooms, availableRooms, maxOccupants]
       properties:
         title:
           type: string
-          minLength: 5
         description:
           type: string
-          minLength: 10
         city:
           type: string
         district:
           type: string
         address:
           type: string
-        latitude:
-          type: number
-        longitude:
-          type: number
         monthlyRent:
           type: number
-          example: 180000
         deposit:
           type: number
-          example: 90000
         totalRooms:
           type: integer
-          minimum: 1
         availableRooms:
           type: integer
-          minimum: 1
         currentOccupants:
           type: integer
-          minimum: 0
-          default: 0
         maxOccupants:
           type: integer
-          minimum: 1
         petsAllowed:
           type: boolean
-          default: false
         smokingAllowed:
           type: string
-          enum:
-            - yes
-            - no
-            - outside
+          enum: [yes, no, outside]
         genderPreference:
           type: string
-          enum:
-            - any
-            - male
-            - female
-          default: any
+          enum: [any, male, female]
         minAge:
           type: integer
         maxAge:
           type: integer
         furnished:
           type: boolean
-          default: false
         internetIncluded:
           type: boolean
-          default: false
         availableFrom:
           type: string
           format: date-time
-          example: 2026-05-01T00:00:00.000Z
         minStayMonths:
           type: integer
         photos:
           type: array
           items:
             type: string
-            format: uri
-          default: []
         status:
           type: string
-          enum:
-            - draft
-            - active
-            - rented
-            - archived
-          default: draft
+          enum: [draft, active, rented, archived]
         bills:
           type: array
           items:
-            $ref: '#/components/schemas/BillInput'
+            $ref: "#/components/schemas/BillInput"
         houseRules:
           type: array
           items:
-            $ref: '#/components/schemas/HouseRuleInput'
-    ListingPagination:
+            type: object
+            properties:
+              ruleText:
+                type: string
+              orderIndex:
+                type: integer
+    BillInput:
       type: object
+      required: [label, amountKzt]
       properties:
-        page:
-          type: integer
-          nullable: true
-          example: 1
-        limit:
-          type: integer
-          example: 12
-        total:
-          type: integer
-          nullable: true
-          example: 134
-        totalPages:
-          type: integer
-          nullable: true
-          example: 12
-        nextCursor:
-          type: integer
-          nullable: true
-          description: "Pass back as `?cursor=` for the next page (cursor pagination). When\nthe client also sends `?page=`, this is `null` once the last page\nis reached.\n"
-    ListingsPage:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/Listing'
-        pagination:
-          $ref: '#/components/schemas/ListingPagination'
-    Application:
-      type: object
-      properties:
-        id:
-          type: integer
-        listingId:
-          type: integer
-        seekerId:
-          type: integer
-        message:
+        category:
           type: string
-          nullable: true
-        status:
+          enum: [rent, utilities, internet, cleaning, other]
+        label:
           type: string
-          enum:
-            - pending
-            - accepted
-            - rejected
-            - withdrawn
-        createdAt:
+        amountKzt:
+          type: number
+        isIncludedInRent:
+          type: boolean
+        notes:
           type: string
-          format: date-time
-        listing:
-          description: 'Present on `GET /applications/me`.'
-          type: object
-          properties:
-            id:
-              type: integer
-            title:
-              type: string
-            city:
-              type: string
-            district:
-              type: string
-              nullable: true
-            monthlyRent:
-              type: string
     ApplicationInput:
       type: object
       properties:
         message:
           type: string
-          example: 'Hi! I''m a 23 y.o. student, non-smoker.'
-    Favorite:
-      type: object
-      properties:
-        id:
-          type: integer
-        userId:
-          type: integer
-        listingId:
-          type: integer
-        listing:
-          $ref: '#/components/schemas/Listing'
     FavoriteInput:
       type: object
-      required:
-        - listingId
+      required: [listingId]
       properties:
         listingId:
           type: integer
-    SavedSearch:
-      type: object
-      properties:
-        id:
-          type: integer
-        userId:
-          type: integer
-        name:
-          type: string
-        filterJson:
-          type: object
-          additionalProperties: true
-          example:
-            city: Almaty
-            maxPrice: 200000
-            furnished: true
-        createdAt:
-          type: string
-          format: date-time
     SavedSearchInput:
       type: object
-      required:
-        - name
-        - filterJson
+      required: [name, filterJson]
       properties:
         name:
           type: string
-          example: 'Almaty < 200K furnished'
         filterJson:
           type: object
           additionalProperties: true
-    AdminStats:
-      type: object
-      properties:
-        users:
-          type: integer
-        listings:
-          type: integer
-        applications:
-          type: integer
-        pendingListings:
-          type: integer
-        pendingVerifications:
-          type: integer
     BanInput:
       type: object
-      required:
-        - isBanned
+      required: [isBanned]
       properties:
         isBanned:
           type: boolean
     AdminRoleInput:
       type: object
-      required:
-        - role
+      required: [role]
       properties:
         role:
           type: string
-          enum:
-            - seeker
-            - host
-            - admin
+          enum: [seeker, host, admin, super_admin]
     ModerateListingInput:
       type: object
-      required:
-        - approved
+      required: [approved]
       properties:
         approved:
           type: boolean
-    IdVerification:
+    ReviewVerificationInput:
       type: object
+      required: [status]
       properties:
-        id:
-          type: integer
-        userId:
-          type: integer
+        status:
+          type: string
+          enum: [approved, rejected]
+        adminNote:
+          type: string
+    CityInput:
+      type: object
+      required: [slug, nameRu]
+      properties:
+        slug:
+          type: string
+          example: almaty
+        nameRu:
+          type: string
+          example: Алматы
+        nameKk:
+          type: string
         imageUrl:
           type: string
           format: uri
-        status:
-          type: string
-          enum:
-            - pending
-            - approved
-            - rejected
-        adminNote:
-          type: string
-          nullable: true
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-        user:
-          type: object
-          properties:
-            id:
-              type: integer
-            fullName:
-              type: string
-            email:
-              type: string
-            isIdVerified:
-              type: boolean
-    ReviewVerificationInput:
+        isActive:
+          type: boolean
+        sortOrder:
+          type: integer
+    NeighborhoodInput:
       type: object
-      required:
-        - status
+      required: [cityId, name]
       properties:
-        status:
+        cityId:
+          type: integer
+        name:
           type: string
-          enum:
-            - approved
-            - rejected
-        adminNote:
+        description:
           type: string
+        imageUrl:
+          type: string
+          format: uri
+        priceLabel:
+          type: string
+        trendLabel:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+        sortOrder:
+          type: integer
   responses:
+    OK:
+      description: OK
+    Created:
+      description: Created
+    NoContent:
+      description: Deleted or completed
     BadRequest:
-      description: 'Bad Request'
+      description: Bad request
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: "#/components/schemas/Error"
     Unauthorized:
-      description: 'Unauthorized — missing or invalid access token'
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
+      description: Missing, invalid, or expired token
     Forbidden:
-      description: 'Forbidden — role or ownership not permitted'
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
+      description: Authenticated user lacks the required role or ownership
     NotFound:
-      description: 'Resource not found'
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
+      description: Resource not found
     Conflict:
-      description: 'Conflict — duplicate or invalid state transition'
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-    Unprocessable:
-      description: 'Validation failed'
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-    RateLimited:
-      description: 'Too many requests'
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
+      description: Duplicate resource or invalid state transition
+    Validation:
+      description: Validation failed
     ServerError:
-      description: 'Internal Server Error'
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
+      description: Internal server error
 paths:
   /health:
     get:
-      tags:
-        - Health
+      tags: [Health]
       security: []
-      summary: 'Liveness + DB ping'
+      summary: Health check plus database ping
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: ok
-                  db:
-                    type: string
-                    example: connected
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "200":
+          $ref: "#/components/responses/OK"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
   /auth/register:
     post:
-      tags:
-        - Auth
+      tags: [Auth]
       security: []
-      summary: 'Create a new user account'
-      description: "Hashes the password with bcrypt (cost 12), persists the user, and\nreturns an access + refresh token pair. Rate-limited to **5 requests\nper minute per IP** (disabled in `NODE_ENV=test`).\n"
+      summary: Register a seeker or host account and send email verification code
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RegisterInput'
+              $ref: "#/components/schemas/RegisterInput"
       responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthTokens'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "201":
+          $ref: "#/components/responses/Created"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Validation"
   /auth/login:
     post:
-      tags:
-        - Auth
+      tags: [Auth]
       security: []
-      summary: 'Exchange credentials for access + refresh tokens'
-      description: 'Rate-limited to **5 requests per minute per IP**.'
+      summary: Login and receive access plus refresh tokens
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LoginInput'
+              $ref: "#/components/schemas/LoginInput"
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthTokens'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "200":
+          $ref: "#/components/responses/OK"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /auth/refresh:
     post:
-      tags:
-        - Auth
+      tags: [Auth]
       security: []
-      summary: 'Rotate refresh token; issue a new access + refresh pair'
-      description: "The refresh token is verified, hashed, and looked up in the\n`refresh_tokens` table. On success the old token is revoked and a new\npair is issued atomically — replaying the old token afterwards returns\n`401 REVOKED_REFRESH`.\n"
+      summary: Rotate refresh token and issue a new token pair
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RefreshInput'
+              $ref: "#/components/schemas/RefreshInput"
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthTokens'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "200":
+          $ref: "#/components/responses/OK"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /auth/logout:
     post:
-      tags:
-        - Auth
+      tags: [Auth]
       security: []
-      summary: 'Revoke a refresh token'
-      description: 'Idempotent — returns 200 even if the token is unknown.'
+      summary: Revoke a refresh token
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RefreshInput'
+              $ref: "#/components/schemas/RefreshInput"
       responses:
-        '200':
-          description: 'Logged out'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Message'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "200":
+          $ref: "#/components/responses/OK"
   /auth/me:
     get:
-      tags:
-        - Auth
-      summary: 'Get the currently authenticated user'
+      tags: [Auth]
+      summary: Return the authenticated user profile
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  user:
-                    $ref: '#/components/schemas/User'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "200":
+          $ref: "#/components/responses/OK"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      tags: [Auth]
+      summary: Update the authenticated user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/OK"
+        "422":
+          $ref: "#/components/responses/Validation"
+  /auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Change password for the authenticated user and revoke sessions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/OK"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /auth/switch-role:
     patch:
-      tags:
-        - Auth
-      summary: 'Switch the authenticated user''s role'
-      description: "Flips the user between `seeker` and `host`. Re-issues an access token\nwhose `role` claim matches the new role so subsequent RBAC checks pass\nwithout forcing the client to log out and back in.\n"
+      tags: [Auth]
+      summary: Switch own role between seeker and host
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SwitchRoleInput'
+              $ref: "#/components/schemas/SwitchRoleInput"
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthTokens'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
-        '500':
-          $ref: '#/components/responses/ServerError'
-  /auth/phone/send-otp:
+        "200":
+          $ref: "#/components/responses/OK"
+  /auth/email/request-code:
     post:
-      tags:
-        - Auth
-      summary: 'Send an SMS OTP to the authenticated user''s phone'
-      description: "Triggers a Twilio Verify SMS code to the user's stored phone\nnumber. Rate-limited to **5 requests per minute per IP**.\nIf Twilio credentials are not configured the service operates in\nmock mode (any request returns 200 and the verify endpoint accepts\n`000000`).\n"
-      responses:
-        '200':
-          description: 'OTP dispatched (or already verified)'
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  status:
-                    type: string
-                    example: pending
-                  mock:
-                    type: boolean
-                  alreadyVerified:
-                    type: boolean
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '502':
-          description: 'Upstream SMS provider failed'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /auth/phone/verify-otp:
-    post:
-      tags:
-        - Auth
-      summary: 'Verify an SMS OTP and mark phone as verified'
-      description: "Checks the supplied code against Twilio Verify. On success,\nflips `isPhoneVerified=true` on the user record and returns the\nupdated user. Rate-limited to **5 requests per minute per IP**.\n"
+      tags: [Auth]
+      security: []
+      summary: Send or resend a six-digit email verification code
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - code
-              properties:
-                code:
-                  type: string
-                  pattern: '^\d{4,8}$'
-                  example: '123456'
+              $ref: "#/components/schemas/EmailCodeRequest"
       responses:
-        '200':
-          description: 'OTP verified'
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  user:
-                    $ref: '#/components/schemas/User'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '502':
-          description: 'Upstream SMS provider failed'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+        "200":
+          $ref: "#/components/responses/OK"
+  /auth/email/verify:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Verify an email address using the six-digit code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailVerifyInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/OK"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Email a password reset link if the account exists
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/OK"
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Consume a reset token and set a new password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/OK"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
   /listings:
     get:
-      tags:
-        - Listings
+      tags: [Listings]
       security: []
-      summary: 'Browse public listings (cursor or page paginated)'
-      description: "Supports either page-based (`?page=&limit=`) or cursor-based\n(`?cursor=&limit=`) pagination. Listings are filtered by `status=active`\nand `isApproved=true` by default.\n"
+      summary: Browse active listings with filters and pagination
       parameters:
-        -
-          in: query
+        - in: query
           name: city
           schema:
             type: string
-          example: Almaty
-        -
-          in: query
+        - in: query
           name: district
           schema:
             type: string
-        -
-          in: query
+        - in: query
           name: minPrice
           schema:
             type: number
-        -
-          in: query
+        - in: query
           name: maxPrice
           schema:
             type: number
-        -
-          in: query
-          name: minDeposit
-          schema:
-            type: number
-        -
-          in: query
-          name: maxDeposit
-          schema:
-            type: number
-        -
-          in: query
-          name: totalRooms
-          schema:
-            type: integer
-        -
-          in: query
-          name: availableRooms
-          schema:
-            type: integer
-        -
-          in: query
-          name: furnished
-          schema:
-            type: boolean
-        -
-          in: query
-          name: internetIncluded
-          schema:
-            type: boolean
-        -
-          in: query
-          name: minStayMonths
-          schema:
-            type: integer
-        -
-          in: query
-          name: currentOccupants
-          schema:
-            type: integer
-        -
-          in: query
-          name: maxOccupants
-          schema:
-            type: integer
-        -
-          in: query
-          name: petsAllowed
-          schema:
-            type: boolean
-        -
-          in: query
-          name: smokingAllowed
-          schema:
-            type: string
-            enum:
-              - yes
-              - no
-              - outside
-        -
-          in: query
-          name: genderPreference
-          schema:
-            type: string
-            enum:
-              - any
-              - male
-              - female
-        -
-          in: query
-          name: minAge
-          schema:
-            type: integer
-        -
-          in: query
-          name: maxAge
-          schema:
-            type: integer
-        -
-          in: query
-          name: verifiedHostsOnly
-          description: 'Only show listings whose host has both phone + ID verified.'
-          schema:
-            type: boolean
-        -
-          in: query
-          name: hasPhotos
-          schema:
-            type: boolean
-        -
-          in: query
-          name: availableFrom
-          schema:
-            type: string
-            format: date-time
-        -
-          in: query
-          name: status
-          schema:
-            type: string
-            enum:
-              - draft
-              - active
-              - rented
-              - archived
-            default: active
-        -
-          in: query
-          name: isApproved
-          schema:
-            type: boolean
-            default: true
-        -
-          in: query
-          name: sort
-          schema:
-            type: string
-            enum:
-              - newest
-              - price_asc
-              - price_desc
-            default: newest
-        -
-          in: query
+        - in: query
           name: page
           schema:
             type: integer
-            minimum: 1
-            default: 1
-        -
-          in: query
+        - in: query
           name: limit
           schema:
             type: integer
-            minimum: 1
-            maximum: 50
-            default: 12
-        -
-          in: query
-          name: cursor
-          description: "Listing id from the previous response's `pagination.nextCursor`.\nMutually exclusive with `page`.\n"
+        - in: query
+          name: sort
           schema:
-            type: integer
+            type: string
+            enum: [newest, price_asc, price_desc]
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ListingsPage'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "200":
+          $ref: "#/components/responses/OK"
     post:
-      tags:
-        - Listings
-      summary: 'Create a listing (host or admin only)'
+      tags: [Listings]
+      summary: Create a listing
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ListingInput'
+              $ref: "#/components/schemas/ListingInput"
       responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  item:
-                    $ref: '#/components/schemas/Listing'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "201":
+          $ref: "#/components/responses/Created"
   /listings/mine:
     get:
-      tags:
-        - Listings
-      summary: 'List the calling host''s own listings'
-      description: 'Admins receive **all** listings.'
+      tags: [Listings]
+      summary: List listings owned by the current host; admins see all listings
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Listing'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/ServerError'
-  '/listings/{id}':
+        "200":
+          $ref: "#/components/responses/OK"
+  /listings/{id}:
     get:
-      tags:
-        - Listings
+      tags: [Listings]
       security: []
-      summary: 'Get a listing by id (public)'
+      summary: Get listing details by id
       parameters:
-        -
-          $ref: '#/components/parameters/IdPath'
+        - $ref: "#/components/parameters/IdPath"
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  item:
-                    $ref: '#/components/schemas/Listing'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "200":
+          $ref: "#/components/responses/OK"
+        "404":
+          $ref: "#/components/responses/NotFound"
     patch:
-      tags:
-        - Listings
-      summary: 'Update a listing (owner or admin)'
-      description: "Partial update. `bills` and `houseRules` arrays, when sent, replace the\nfull child collection inside a transaction. Only admins may flip\n`isApproved`.\n"
+      tags: [Listings]
+      summary: Update a listing owned by the user or any listing as admin
       parameters:
-        -
-          $ref: '#/components/parameters/IdPath'
+        - $ref: "#/components/parameters/IdPath"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              allOf:
-                -
-                  $ref: '#/components/schemas/ListingInput'
-              type: object
-              properties:
-                isApproved:
-                  type: boolean
-                  description: 'Admin-only field.'
+              $ref: "#/components/schemas/ListingInput"
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  item:
-                    $ref: '#/components/schemas/Listing'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "200":
+          $ref: "#/components/responses/OK"
     delete:
-      tags:
-        - Listings
-      summary: 'Delete a listing (owner or admin)'
+      tags: [Listings]
+      summary: Delete a listing owned by the user or any listing as admin
       parameters:
-        -
-          $ref: '#/components/parameters/IdPath'
+        - $ref: "#/components/parameters/IdPath"
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Message'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/ServerError'
-  '/listings/{listingId}/bills':
+        "200":
+          $ref: "#/components/responses/OK"
+
+  /listings/{listingId}/bills:
     get:
-      tags:
-        - Bills
+      tags: [Bills]
       security: []
-      summary: 'List bills for a listing'
+      summary: List bills for a listing
       parameters:
-        -
-          $ref: '#/components/parameters/ListingIdPath'
+        - $ref: "#/components/parameters/ListingIdPath"
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Bill'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "200":
+          $ref: "#/components/responses/OK"
     post:
-      tags:
-        - Bills
-      summary: 'Add a bill to a listing (owner or admin)'
+      tags: [Bills]
+      summary: Add a bill to a listing
       parameters:
-        -
-          $ref: '#/components/parameters/ListingIdPath'
+        - $ref: "#/components/parameters/ListingIdPath"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BillInput'
+              $ref: "#/components/schemas/BillInput"
       responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  item:
-                    $ref: '#/components/schemas/Bill'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
-        '500':
-          $ref: '#/components/responses/ServerError'
-  '/bills/{id}':
+        "201":
+          $ref: "#/components/responses/Created"
+  /bills/{id}:
     patch:
-      tags:
-        - Bills
-      summary: 'Update a bill (owner or admin)'
+      tags: [Bills]
+      summary: Update a bill
       parameters:
-        -
-          $ref: '#/components/parameters/IdPath'
+        - $ref: "#/components/parameters/IdPath"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BillInput'
+              $ref: "#/components/schemas/BillInput"
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  item:
-                    $ref: '#/components/schemas/Bill'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "200":
+          $ref: "#/components/responses/OK"
     delete:
-      tags:
-        - Bills
-      summary: 'Delete a bill (owner or admin)'
+      tags: [Bills]
+      summary: Delete a bill
       parameters:
-        -
-          $ref: '#/components/parameters/IdPath'
+        - $ref: "#/components/parameters/IdPath"
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Message'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/ServerError'
-  '/listings/{listingId}/applications':
+        "200":
+          $ref: "#/components/responses/OK"
+
+  /listings/{listingId}/applications:
     post:
-      tags:
-        - Applications
-      summary: 'Apply to a listing (seeker or admin)'
-      description: "Idempotent for the same `(listingId, seekerId)` pair — re-applying\nresets the existing application's `message` and `status` back to\n`pending`. Hosts cannot apply to their own listing (returns 400).\n"
+      tags: [Applications]
+      summary: Apply to a listing
       parameters:
-        -
-          $ref: '#/components/parameters/ListingIdPath'
+        - $ref: "#/components/parameters/ListingIdPath"
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ApplicationInput'
+              $ref: "#/components/schemas/ApplicationInput"
       responses:
-        '201':
-          description: 'Application submitted'
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  item:
-                    $ref: '#/components/schemas/Application'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "201":
+          $ref: "#/components/responses/Created"
+    get:
+      tags: [Applications]
+      summary: List applicants for a listing as host or admin
+      parameters:
+        - $ref: "#/components/parameters/ListingIdPath"
+      responses:
+        "200":
+          $ref: "#/components/responses/OK"
   /applications/me:
     get:
-      tags:
-        - Applications
-      summary: 'List my applications'
+      tags: [Applications]
+      summary: List the current user's applications
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Application'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/ServerError'
-  '/applications/{id}/accept':
+        "200":
+          $ref: "#/components/responses/OK"
+  /applications/{id}/withdraw:
     patch:
-      tags:
-        - Applications
-      summary: 'Accept an application (host or admin)'
-      description: "**Atomic** — wraps a `SELECT … FOR UPDATE` on the listing row, decrements\n`availableRooms` and increments `currentOccupants`, then flips the\napplication to `accepted`. Concurrent accepts on the last room cannot\nboth succeed.\n"
+      tags: [Applications]
+      summary: Withdraw an application
       parameters:
-        -
-          $ref: '#/components/parameters/IdPath'
+        - $ref: "#/components/parameters/IdPath"
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  item:
-                    $ref: '#/components/schemas/Application'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: "Conflict — application is not `pending`, no rooms remain, or max\noccupancy reached.\n"
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          $ref: '#/components/responses/ServerError'
-  '/applications/{id}/reject':
+        "200":
+          $ref: "#/components/responses/OK"
+  /applications/{id}/accept:
     patch:
-      tags:
-        - Applications
-      summary: 'Reject an application (host or admin)'
+      tags: [Applications]
+      summary: Accept an application atomically and enqueue an acceptance email
       parameters:
-        -
-          $ref: '#/components/parameters/IdPath'
+        - $ref: "#/components/parameters/IdPath"
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  item:
-                    $ref: '#/components/schemas/Application'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/ServerError'
-  '/applications/{id}/withdraw':
+        "200":
+          $ref: "#/components/responses/OK"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /applications/{id}/reject:
     patch:
-      tags:
-        - Applications
-      summary: 'Withdraw my application (seeker or admin)'
+      tags: [Applications]
+      summary: Reject an application and enqueue a rejection email
       parameters:
-        -
-          $ref: '#/components/parameters/IdPath'
+        - $ref: "#/components/parameters/IdPath"
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  item:
-                    $ref: '#/components/schemas/Application'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "200":
+          $ref: "#/components/responses/OK"
+
   /favorites:
     get:
-      tags:
-        - Favorites
-      summary: 'List my favorite listings'
+      tags: [Favorites]
+      summary: List current user's favorites
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Favorite'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "200":
+          $ref: "#/components/responses/OK"
     post:
-      tags:
-        - Favorites
-      summary: 'Add a listing to favorites'
+      tags: [Favorites]
+      summary: Add a listing to favorites
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/FavoriteInput'
+              $ref: "#/components/schemas/FavoriteInput"
       responses:
-        '201':
-          description: 'Created (or already favorited — idempotent)'
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  item:
-                    $ref: '#/components/schemas/Favorite'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "201":
+          $ref: "#/components/responses/Created"
   /favorites/check:
     get:
-      tags:
-        - Favorites
-      summary: 'Check whether a listing is in my favorites'
+      tags: [Favorites]
+      summary: Check whether a listing is favorited by the current user
       parameters:
-        -
-          in: query
+        - in: query
           name: listingId
           required: true
           schema:
             type: integer
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  isFavorite:
-                    type: boolean
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/ServerError'
-  '/favorites/{listingId}':
+        "200":
+          $ref: "#/components/responses/OK"
+  /favorites/{listingId}:
     delete:
-      tags:
-        - Favorites
-      summary: 'Remove a listing from favorites'
+      tags: [Favorites]
+      summary: Remove a listing from favorites
       parameters:
-        -
-          $ref: '#/components/parameters/ListingIdPath'
+        - $ref: "#/components/parameters/ListingIdPath"
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Message'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "200":
+          $ref: "#/components/responses/OK"
+
   /saved-searches:
     get:
-      tags:
-        - 'Saved Searches'
-      summary: 'List my saved searches'
+      tags: [Saved Searches]
+      summary: List current user's saved searches
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/SavedSearch'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "200":
+          $ref: "#/components/responses/OK"
     post:
-      tags:
-        - 'Saved Searches'
-      summary: 'Save a new search'
+      tags: [Saved Searches]
+      summary: Create a saved search
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SavedSearchInput'
+              $ref: "#/components/schemas/SavedSearchInput"
       responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  item:
-                    $ref: '#/components/schemas/SavedSearch'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "201":
+          $ref: "#/components/responses/Created"
+
   /admin/stats:
     get:
-      tags:
-        - Admin
-      summary: 'Platform-wide counters'
+      tags: [Admin]
+      summary: Platform counters for admin dashboard
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  item:
-                    $ref: '#/components/schemas/AdminStats'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "200":
+          $ref: "#/components/responses/OK"
   /admin/users:
     get:
-      tags:
-        - Admin
-      summary: 'List users (admin)'
+      tags: [Admin]
+      summary: List users for admin moderation
       parameters:
-        -
-          in: query
+        - in: query
           name: role
           schema:
             type: string
-            enum:
-              - seeker
-              - host
-              - admin
-        -
-          in: query
+            enum: [seeker, host, admin, super_admin]
+        - in: query
           name: search
-          description: 'Substring match on `fullName` or `email` (case-insensitive).'
           schema:
             type: string
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/AdminUser'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/ServerError'
-  '/admin/users/{id}/ban':
+        "200":
+          $ref: "#/components/responses/OK"
+  /admin/users/{id}/ban:
     patch:
-      tags:
-        - Admin
-      summary: 'Ban or unban a user'
+      tags: [Admin]
+      summary: Ban or unban a user
       parameters:
-        -
-          $ref: '#/components/parameters/IdPath'
+        - $ref: "#/components/parameters/IdPath"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BanInput'
+              $ref: "#/components/schemas/BanInput"
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  item:
-                    type: object
-                    properties:
-                      id: {type: integer}
-                      fullName: {type: string}
-                      isBanned: {type: boolean}
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
-        '500':
-          $ref: '#/components/responses/ServerError'
-  '/admin/users/{id}/role':
+        "200":
+          $ref: "#/components/responses/OK"
+  /admin/users/{id}/role:
     patch:
-      tags:
-        - Admin
-      summary: 'Change a user''s role'
+      tags: [Admin]
+      summary: Change a user's role
       parameters:
-        -
-          $ref: '#/components/parameters/IdPath'
+        - $ref: "#/components/parameters/IdPath"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AdminRoleInput'
+              $ref: "#/components/schemas/AdminRoleInput"
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  item:
-                    type: object
-                    properties:
-                      id: {type: integer}
-                      fullName: {type: string}
-                      role: {type: string}
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "200":
+          $ref: "#/components/responses/OK"
+  /admin/users/{id}:
+    delete:
+      tags: [Admin]
+      summary: Delete a user account as super_admin
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          $ref: "#/components/responses/OK"
   /admin/listings/pending:
     get:
-      tags:
-        - Admin
-      summary: 'List listings awaiting moderation'
+      tags: [Admin]
+      summary: List listings awaiting moderation
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Listing'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/ServerError'
-  '/admin/listings/{id}/moderate':
+        "200":
+          $ref: "#/components/responses/OK"
+  /admin/listings/{id}/moderate:
     patch:
-      tags:
-        - Admin
-      summary: 'Approve or reject a listing'
-      description: "Setting `approved=true` flips the listing to `status=active` and\n`isApproved=true`; `approved=false` archives it.\n"
+      tags: [Admin]
+      summary: Approve or reject a listing
       parameters:
-        -
-          $ref: '#/components/parameters/IdPath'
+        - $ref: "#/components/parameters/IdPath"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ModerateListingInput'
+              $ref: "#/components/schemas/ModerateListingInput"
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  item:
-                    $ref: '#/components/schemas/Listing'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "200":
+          $ref: "#/components/responses/OK"
   /admin/verifications/pending:
     get:
-      tags:
-        - Admin
-      summary: 'List ID-verification submissions pending review'
+      tags: [Admin]
+      summary: List pending ID verification submissions
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/IdVerification'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/ServerError'
-  '/admin/verifications/{id}/review':
+        "200":
+          $ref: "#/components/responses/OK"
+  /admin/verifications/{id}/review:
     patch:
-      tags:
-        - Admin
-      summary: 'Approve or reject an ID verification'
-      description: "Approving flips the linked user's `isIdVerified` flag to `true`;\nrejecting flips it to `false`.\n"
+      tags: [Admin]
+      summary: Approve or reject an ID verification
       parameters:
-        -
-          $ref: '#/components/parameters/IdPath'
+        - $ref: "#/components/parameters/IdPath"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReviewVerificationInput'
+              $ref: "#/components/schemas/ReviewVerificationInput"
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  item:
-                    $ref: '#/components/schemas/IdVerification'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
-        '500':
-          $ref: '#/components/responses/ServerError'
+        "200":
+          $ref: "#/components/responses/OK"
+
+  /cities:
+    get:
+      tags: [Cities]
+      security: []
+      summary: List active public cities
+      responses:
+        "200":
+          $ref: "#/components/responses/OK"
+    post:
+      tags: [Cities]
+      summary: Create a city as super_admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CityInput"
+      responses:
+        "201":
+          $ref: "#/components/responses/Created"
+  /cities/all:
+    get:
+      tags: [Cities]
+      summary: List all cities including inactive as super_admin
+      responses:
+        "200":
+          $ref: "#/components/responses/OK"
+  /cities/{id}:
+    patch:
+      tags: [Cities]
+      summary: Update a city as super_admin
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CityInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/OK"
+    delete:
+      tags: [Cities]
+      summary: Delete a city as super_admin
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          $ref: "#/components/responses/OK"
+
+  /neighborhoods:
+    get:
+      tags: [Neighborhoods]
+      security: []
+      summary: List active public neighborhoods
+      parameters:
+        - in: query
+          name: cityId
+          schema:
+            type: integer
+        - in: query
+          name: citySlug
+          schema:
+            type: string
+      responses:
+        "200":
+          $ref: "#/components/responses/OK"
+    post:
+      tags: [Neighborhoods]
+      summary: Create a neighborhood as super_admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NeighborhoodInput"
+      responses:
+        "201":
+          $ref: "#/components/responses/Created"
+  /neighborhoods/all:
+    get:
+      tags: [Neighborhoods]
+      summary: List all neighborhoods including inactive as super_admin
+      responses:
+        "200":
+          $ref: "#/components/responses/OK"
+  /neighborhoods/{id}:
+    patch:
+      tags: [Neighborhoods]
+      summary: Update a neighborhood as super_admin
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NeighborhoodInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/OK"
+    delete:
+      tags: [Neighborhoods]
+      summary: Delete a neighborhood as super_admin
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          $ref: "#/components/responses/OK"
+
+  /uploads/images:
+    post:
+      tags: [Uploads]
+      summary: Upload an image as super_admin
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          $ref: "#/components/responses/Created"

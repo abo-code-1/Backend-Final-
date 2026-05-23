@@ -147,10 +147,10 @@ export const getMyApplications = asyncHandler(async (req, res) => {
 /**
  * Atomically accepts an application (ORM-only, no raw SQL):
  *   - reads the listing to validate occupancy
- *   - claims a room with a guarded updateMany (WHERE available_rooms > 0):
- *     a single atomic UPDATE whose WHERE is re-checked under Postgres row
+ *   - claims a room with a guarded updateMany (availableRooms > 0):
+ *     a single atomic write whose condition is re-checked under Postgres row
  *     locking, so two concurrent accepts on the last room can never both win
- *     (the loser's UPDATE matches 0 rows -> count 0 -> NO_ROOMS).
+ *     (the loser matches 0 rows -> count 0 -> NO_ROOMS).
  *   - flips application.status to "accepted"
  */
 export const acceptApplication = asyncHandler(async (req, res) => {

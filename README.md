@@ -8,7 +8,7 @@ Primary UI language is Russian. Currency is KZT (₸).
 
 - Frontend: React (Vite), React Router v6, Redux Toolkit, Axios, `react-toastify`
 - Backend: Node.js, Express, PostgreSQL, Prisma ORM, JWT, bcrypt, multer
-- Infra: Docker + docker-compose (`db`, `backend`, `frontend`)
+- Infra: Docker + docker-compose (`db`, `backend`, `worker`, `frontend`)
 
 ## Project Structure
 

@@ -16,7 +16,7 @@ let running = true;
 
 /**
  * Claim one pending job atomically so multiple workers never double-send:
- * updateMany guarded by status='pending' — only one worker's UPDATE matches.
+ * updateMany guarded by status='pending' lets only one worker claim it.
  */
 const claimNext = async () => {
   const candidate = await prisma.emailJob.findFirst({

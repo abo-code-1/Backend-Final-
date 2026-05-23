@@ -1,8 +1,7 @@
-import { execSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
-import pg from "pg";
 
 // globalSetup runs before any test module (and before src/config/env.js loads
 // dotenv), so load the root .env here too — that's where DATABASE_URL lives.
@@ -11,12 +10,32 @@ dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const TEST_DB_NAME = process.env.TEST_DB_NAME || "roomie_kz_test";
 
-const buildAdminUrl = () => {
-  // Connect to the postgres maintenance DB on the same host/user to issue
-  // CREATE DATABASE if missing.
+const buildMaintenanceUrl = () => {
   const url = new URL(process.env.DATABASE_URL);
   url.pathname = "/postgres";
+  url.search = "";
   return url.toString();
+};
+
+const ensureTestDatabase = () => {
+  const result = spawnSync(
+    "createdb",
+    ["--maintenance-db", buildMaintenanceUrl(), TEST_DB_NAME],
+    { encoding: "utf8" }
+  );
+
+  if (result.status === 0) return;
+
+  const output = `${result.stdout || ""}${result.stderr || ""}`;
+  if (/already exists/i.test(output)) return;
+
+  if (result.error?.code === "ENOENT") {
+    throw new Error(
+      "PostgreSQL createdb client is required for test database setup"
+    );
+  }
+
+  throw new Error(output || result.error?.message || "createdb failed");
 };
 
 export default async function globalSetup() {
@@ -24,20 +43,7 @@ export default async function globalSetup() {
     throw new Error("DATABASE_URL must be set for the test run");
   }
 
-  // Ensure the test DB exists.
-  const adminUrl = buildAdminUrl();
-  const client = new pg.Client({ connectionString: adminUrl });
-  await client.connect();
-  const exists = await client.query(
-    "SELECT 1 FROM pg_database WHERE datname = $1",
-    [TEST_DB_NAME]
-  );
-  if (exists.rowCount === 0) {
-    // pg won't allow parameter binding for CREATE DATABASE; the name is
-    // controlled by env, not user input.
-    await client.query(`CREATE DATABASE "${TEST_DB_NAME}"`);
-  }
-  await client.end();
+  ensureTestDatabase();
 
   // Push the Prisma schema into the test DB.
   const u = new URL(process.env.DATABASE_URL);
